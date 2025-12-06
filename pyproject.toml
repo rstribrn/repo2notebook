@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repo2notebook"
+version = "1.0.0"
+description = "Convert any code repository into a single markdown file for NotebookLM"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Appaholics"}
+]
+keywords = [
+    "notebooklm",
+    "llm",
+    "markdown",
+    "code",
+    "repository",
+    "converter"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+
+[project.urls]
+Homepage = "https://github.com/Appaholics/repo2notebook"
+Repository = "https://github.com/Appaholics/repo2notebook"
+Issues = "https://github.com/Appaholics/repo2notebook/issues"
+
+[project.scripts]
+repo2notebook = "repo2notebook:main"
+
+[tool.setuptools]
+py-modules = ["repo2notebook"]
