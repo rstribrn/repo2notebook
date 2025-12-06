@@ -6,10 +6,10 @@ Usage:
     python repo2notebook.py              # Process current directory
     python repo2notebook.py /path/to/repo  # Process specific directory
 
-Output: _notebook_export/notebook.md
+Output: _repo2notebook/notebook.md
 
-GitHub: https://github.com/user/repo2notebook
-License: Unlicense (Public Domain)
+GitHub: https://github.com/Appaholics/repo2notebook
+License: MIT
 """
 
 import os
@@ -22,8 +22,9 @@ from datetime import datetime
 # CONFIGURATION
 # ============================================================================
 
-OUTPUT_DIR = "_notebook_export"
+OUTPUT_DIR = "_repo2notebook"
 OUTPUT_FILE = "notebook.md"
+GITHUB_URL = "https://github.com/Appaholics/repo2notebook"
 
 # Always exclude (hardcoded, cannot override)
 ALWAYS_EXCLUDE_DIRS = {
@@ -350,11 +351,11 @@ def generate_markdown(repo_path: Path, files: list[Path]) -> str:
 def update_gitignore(repo_path: Path):
     """Add our output to .gitignore."""
     gitignore_path = repo_path / ".gitignore"
-    marker = "# repo2notebook output"
+    marker = "# repo2notebook"
     entries_to_add = [
         "",
         marker,
-        "# https://github.com/user/repo2notebook",
+        f"# {GITHUB_URL}",
         f"{OUTPUT_DIR}/",
         "repo2notebook.py",
     ]
@@ -414,12 +415,7 @@ def main():
     # Generate markdown
     print("Generating markdown...")
     content, word_count = generate_markdown(repo_path, files)
-    
-    # Warn if approaching limit
-    if word_count > 400000:
-        print(f"⚠️  Warning: {word_count:,} words - approaching NotebookLM 500k limit")
-    else:
-        print(f"Word count: {word_count:,}")
+    print(f"Word count: {word_count:,}")
     print()
     
     # Create output directory
