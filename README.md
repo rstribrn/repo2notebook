@@ -6,21 +6,31 @@ Convert any code repository into a single markdown file for [NotebookLM](https:/
 
 **Solution:** One command, one file. Upload and start chatting with your codebase.
 
-## Quick Start
+## Installation
 
 ```bash
-# Download the script
-curl -O https://raw.githubusercontent.com/Appaholics/repo2notebook/main/repo2notebook.py
+pip install repo2notebook
+```
 
-# Run in your project
+## Usage
+
+```bash
+# Run in your project directory
 cd your-project
-python repo2notebook.py
+repo2notebook
 
 # Or specify a path
-python repo2notebook.py /path/to/your/repo
+repo2notebook /path/to/your/repo
 ```
 
 **Output:** `_repo2notebook/notebook.md` — ready to upload to NotebookLM.
+
+### Alternative: Run Without Installing
+
+```bash
+curl -O https://raw.githubusercontent.com/Appaholics/repo2notebook/main/repo2notebook.py
+python repo2notebook.py
+```
 
 ## Features
 

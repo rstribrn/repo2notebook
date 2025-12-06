@@ -23,7 +23,6 @@ from datetime import datetime
 # ============================================================================
 
 OUTPUT_DIR = "_repo2notebook"
-OUTPUT_FILE = "notebook.md"
 GITHUB_URL = "https://github.com/Appaholics/repo2notebook"
 
 # Always exclude (hardcoded, cannot override)
@@ -126,6 +125,44 @@ EXT_TO_LANG = {
     ".nginx": "nginx",
     ".proto": "protobuf",
 }
+
+# ============================================================================
+# OUTPUT FILENAME
+# ============================================================================
+
+def get_output_filename(repo_path: Path) -> str:
+    """Generate output filename from git remote or folder name."""
+    
+    # Try to get git remote URL
+    git_config = repo_path / ".git" / "config"
+    if git_config.exists():
+        try:
+            with open(git_config, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # Parse remote URL (supports both https and ssh formats)
+            import re
+            
+            # Match: url = https://github.com/owner/repo.git
+            # Match: url = git@github.com:owner/repo.git
+            patterns = [
+                r'url\s*=\s*https?://([^/]+)/([^/]+)/([^/\s]+?)(?:\.git)?$',
+                r'url\s*=\s*git@([^:]+):([^/]+)/([^/\s]+?)(?:\.git)?$',
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, content, re.MULTILINE)
+                if match:
+                    host = match.group(1).replace(".", "-")  # github.com -> github-com
+                    owner = match.group(2)
+                    repo = match.group(3)
+                    return f"{host}-{owner}-{repo}.md"
+        except Exception:
+            pass
+    
+    # Fallback: use folder name
+    return f"{repo_path.name}.md"
+
 
 # ============================================================================
 # GITIGNORE PARSER
@@ -423,7 +460,8 @@ def main():
     output_dir.mkdir(exist_ok=True)
     
     # Write output
-    output_path = output_dir / OUTPUT_FILE
+    output_filename = get_output_filename(repo_path)
+    output_path = output_dir / output_filename
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
     
