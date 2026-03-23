@@ -354,9 +354,10 @@ def get_language(file_path: Path) -> str:
 # MAIN PROCESSING
 # ============================================================================
 
-def collect_files(repo_path: Path) -> tuple[list[Path], dict]:
+def collect_files(repo_path: Path, exclude_patterns: list[str] = None) -> tuple[list[Path], dict]:
     """Collect all files to process. Returns (files, stats)."""
     gitignore_patterns = parse_gitignore(repo_path)
+    exclude_patterns = exclude_patterns or []
     files = []
     stats = {
         "total_scanned": 0,
@@ -365,6 +366,7 @@ def collect_files(repo_path: Path) -> tuple[list[Path], dict]:
         "excluded_gitignore": 0,
         "excluded_binary": 0,
         "excluded_non_text": 0,
+        "excluded_custom": 0,
         "included": 0,
     }
     
@@ -386,9 +388,15 @@ def collect_files(repo_path: Path) -> tuple[list[Path], dict]:
             
             file_path = Path(root) / filename
             rel_path = rel_root / filename if str(rel_root) != "." else Path(filename)
+            rel_path_str = str(rel_path)
+            
+            # Check custom exclude patterns
+            if exclude_patterns and matches_gitignore(rel_path_str, exclude_patterns):
+                stats["excluded_custom"] += 1
+                continue
             
             # Skip gitignore matches
-            if matches_gitignore(str(rel_path), gitignore_patterns):
+            if matches_gitignore(rel_path_str, gitignore_patterns):
                 stats["excluded_gitignore"] += 1
                 continue
             
@@ -417,7 +425,7 @@ def print_collection_stats(stats: dict):
     
     excluded_total = (stats['excluded_dir'] + stats['excluded_file'] + 
                      stats['excluded_gitignore'] + stats['excluded_binary'] + 
-                     stats['excluded_non_text'])
+                     stats['excluded_non_text'] + stats['excluded_custom'])
     
     if excluded_total > 0:
         print(f"  • Excluded: {excluded_total} files/dirs")
@@ -425,6 +433,8 @@ def print_collection_stats(stats: dict):
             print(f"    - {stats['excluded_dir']} directories (node_modules, .git, etc.)")
         if stats['excluded_file'] > 0:
             print(f"    - {stats['excluded_file']} files (lock files, .DS_Store, etc.)")
+        if stats['excluded_custom'] > 0:
+            print(f"    - {stats['excluded_custom']} files (custom exclude patterns)")
         if stats['excluded_gitignore'] > 0:
             print(f"    - {stats['excluded_gitignore']} files (gitignore patterns)")
         if stats['excluded_binary'] > 0:
@@ -670,6 +680,8 @@ Examples:
   %(prog)s /path/to/repo       # Process specific directory
   %(prog)s --split .           # Auto-split if exceeds limits
   %(prog)s --max-words 300000  # Custom word limit
+  %(prog)s --exclude "*.log" --exclude "test_*"  # Exclude patterns
+  %(prog)s --exclude-file .excludes  # Read patterns from file
         """
     )
     
@@ -699,12 +711,46 @@ Examples:
         help='Disable splitting (error if too large)'
     )
     
+    parser.add_argument(
+        '--exclude',
+        action='append',
+        metavar='PATTERN',
+        help='Exclude files/directories matching pattern (can be used multiple times)'
+    )
+    
+    parser.add_argument(
+        '--exclude-file',
+        metavar='FILE',
+        help='Read exclude patterns from file (one pattern per line)'
+    )
+    
     args = parser.parse_args()
     
     # Determine repo path
     repo_path = Path(args.directory).resolve()
     max_words = args.max_words
     auto_split = args.split or not args.no_split  # Default is True unless --no-split
+    
+    # Collect exclude patterns
+    exclude_patterns = []
+    if args.exclude:
+        exclude_patterns.extend(args.exclude)
+    
+    if args.exclude_file:
+        exclude_file_path = Path(args.exclude_file)
+        if not exclude_file_path.exists():
+            print(f"Error: Exclude file does not exist: {exclude_file_path}")
+            sys.exit(1)
+        
+        try:
+            with open(exclude_file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        exclude_patterns.append(line)
+        except Exception as e:
+            print(f"Error reading exclude file: {e}")
+            sys.exit(1)
     
     # Validate
     if not repo_path.exists():
@@ -716,11 +762,22 @@ Examples:
         sys.exit(1)
     
     print(f"Processing: {repo_path}")
+    
+    if exclude_patterns:
+        print(f"Custom exclude patterns: {len(exclude_patterns)}")
+        if len(exclude_patterns) <= 5:
+            for pattern in exclude_patterns:
+                print(f"  • {pattern}")
+        else:
+            for pattern in exclude_patterns[:5]:
+                print(f"  • {pattern}")
+            print(f"  • ... and {len(exclude_patterns) - 5} more")
+    
     print()
     
     # Collect files
     print("Scanning files...")
-    files, stats = collect_files(repo_path)
+    files, stats = collect_files(repo_path, exclude_patterns)
     print_collection_stats(stats)
     print()
     

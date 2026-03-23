@@ -6,6 +6,8 @@ Convert any code repository into NotebookLM-compatible markdown format with auto
 
 - ✅ **NotebookLM Optimized**: Automatic compliance with NotebookLM limits (500k words, 50MB)
 - ✅ **Smart Splitting**: Automatically splits large repositories into multiple parts
+- ✅ **Binary Detection**: Advanced detection and filtering of binary files
+- ✅ **Custom Exclusions**: Flexible `--exclude` patterns and exclude files
 - ✅ **Security Scanning**: Detects sensitive files before conversion
 - ✅ **Git Integration**: Automatic naming from Git remote URLs
 - ✅ **Format Support**: 50+ programming languages with proper syntax highlighting
@@ -58,6 +60,8 @@ Options:
   --split                 Enable auto-split for large repos (default: ON)
   --no-split              Disable splitting (error if too large)
   --max-words NUM         Maximum words per file (default: 400,000)
+  --exclude PATTERN       Exclude files matching pattern (can use multiple times)
+  --exclude-file FILE     Read exclude patterns from file (one per line)
 ```
 
 ### repo2notebook-wrapper.sh
@@ -263,6 +267,30 @@ python3 repo2notebook.py --no-split /path/to/repo
 ./repo2notebook-wrapper.sh --no-split /path/to/repo
 ```
 
+### Example 6: Exclude Specific Files/Patterns
+
+```bash
+# Exclude test files and logs
+python3 repo2notebook.py --exclude "test_*" --exclude "*.log" /path/to/repo
+
+# Exclude multiple patterns
+python3 repo2notebook.py --exclude "*.tmp" --exclude "debug.*" --exclude "vendor/" /path/to/repo
+
+# Use exclude file
+cat > .excludes << EOF
+test_*
+*.log
+debug.*
+tmp/
+vendor/
+EOF
+
+python3 repo2notebook.py --exclude-file .excludes /path/to/repo
+
+# Combine with other options
+python3 repo2notebook.py --split --exclude "test_*" --max-words 300000 /path/to/repo
+```
+
 ## 🎯 Best Practices
 
 ### Before Conversion
@@ -374,6 +402,33 @@ echo "tests/" >> .gitignore
 ### 🎯 Additional Exclusions
 
 Files matching your `.gitignore` patterns are also excluded.
+
+### 🔧 Custom Exclusions
+
+Use `--exclude` to add your own patterns:
+
+```bash
+# Exclude test files
+python3 repo2notebook.py --exclude "test_*" --exclude "*_test.py"
+
+# Exclude logs and temporary files
+python3 repo2notebook.py --exclude "*.log" --exclude "*.tmp" --exclude "cache/"
+
+# Use an exclude file (one pattern per line)
+cat > .repo2notebook-exclude << EOF
+# Custom excludes
+test_*
+*_test.py
+*.log
+*.tmp
+fixtures/
+mock_data/
+EOF
+
+python3 repo2notebook.py --exclude-file .repo2notebook-exclude
+```
+
+Patterns support wildcards (`*`, `?`) and work like `.gitignore` patterns.
 
 ## 🤝 Contributing
 
