@@ -462,6 +462,7 @@ def collect_files(repo_path: Path, exclude_patterns: list[str] = None) -> tuple[
         "binary": [],
         "non_text": [],
         "default_patterns": [],
+        "oversized": [],
     }
     stats = {
         "total_scanned": 0,
@@ -627,6 +628,7 @@ def generate_excluded_report(repo_path: Path, excluded_files: dict, output_dir: 
         "binary": "Binary files",
         "non_text": "Non-text files",
         "default_patterns": "Default patterns",
+        "oversized": "Oversized files (>max-words limit)",
     }
     
     # Detailed listing by extension
@@ -648,7 +650,7 @@ def generate_excluded_report(repo_path: Path, excluded_files: dict, output_dir: 
         for file_path, category in sorted_files:
             by_category[category].append(file_path)
         
-        for category in ["repo2notebookignore", "custom", "gitignore", "binary", "non_text", "default_patterns"]:
+        for category in ["repo2notebookignore", "custom", "gitignore", "binary", "non_text", "default_patterns", "oversized"]:
             if category in by_category:
                 category_files = by_category[category]
                 if category_files:
@@ -670,7 +672,7 @@ def generate_excluded_report(repo_path: Path, excluded_files: dict, output_dir: 
         for file_path, category in sorted_no_ext:
             by_category[category].append(file_path)
         
-        for category in ["repo2notebookignore", "custom", "gitignore", "binary", "non_text", "default_patterns"]:
+        for category in ["repo2notebookignore", "custom", "gitignore", "binary", "non_text", "default_patterns", "oversized"]:
             if category in by_category:
                 category_files = by_category[category]
                 if category_files:
@@ -744,11 +746,17 @@ def generate_markdown(repo_path: Path, files: list[Path]) -> tuple[str, int]:
     return "\n".join(lines), word_count
 
 
-def split_files_into_chunks(files: list[Path], repo_path: Path, max_words: int) -> list[list[Path]]:
-    """Split files into chunks that fit within word limit."""
+def split_files_into_chunks(files: list[Path], repo_path: Path, max_words: int) -> tuple[list[list[Path]], list[tuple[Path, int]]]:
+    """Split files into chunks that fit within word limit.
+    
+    Returns (chunks, oversized_files) where:
+    - chunks: list of chunks, each chunk is a list of files
+    - oversized_files: list of (file_path, word_count) tuples for files that exceed limit
+    """
     chunks = []
     current_chunk = []
     current_words = 0
+    oversized_files = []
     
     for file_path in files:
         content = read_file_content(file_path)
@@ -757,13 +765,11 @@ def split_files_into_chunks(files: list[Path], repo_path: Path, max_words: int) 
         
         file_words = len(content.split())
         
-        # If single file exceeds limit, put it in its own chunk
+        # If single file exceeds limit, skip it with warning
         if file_words > max_words:
-            if current_chunk:
-                chunks.append(current_chunk)
-                current_chunk = []
-                current_words = 0
-            chunks.append([file_path])
+            rel_path = file_path.relative_to(repo_path)
+            oversized_files.append((rel_path, file_words))
+            print(f"⚠ Skipping oversized file: {rel_path} ({file_words:,} words > {max_words:,} limit)")
             continue
         
         # If adding this file would exceed limit, start new chunk
@@ -780,7 +786,25 @@ def split_files_into_chunks(files: list[Path], repo_path: Path, max_words: int) 
     if current_chunk:
         chunks.append(current_chunk)
     
-    return chunks
+    # Report oversized files
+    if oversized_files:
+        print()
+        print("=" * 70)
+        print(f"⚠ WARNING: {len(oversized_files)} file(s) skipped due to size:")
+        print("=" * 70)
+        for rel_path, words in oversized_files:
+            print(f"  • {rel_path}")
+            print(f"    {words:,} words (limit: {max_words:,})")
+        print()
+        print("These files are too large for NotebookLM and have been excluded.")
+        print("Consider:")
+        print("  1. Manually splitting these files into smaller parts")
+        print("  2. Using a higher --max-words limit (may still exceed NotebookLM)")
+        print("  3. Excluding these files using .repo2notebookignore")
+        print("=" * 70)
+        print()
+    
+    return chunks, oversized_files
 
 
 def generate_split_markdown(repo_path: Path, files: list[Path], part_num: int, total_parts: int) -> tuple[str, int]:
@@ -1079,8 +1103,15 @@ Examples:
         print()
         
         # Split files into chunks
-        chunks = split_files_into_chunks(files, repo_path, max_words)
+        chunks, oversized_files = split_files_into_chunks(files, repo_path, max_words)
+        
+        # Add oversized files to excluded_files for reporting
+        for file_path, word_count in oversized_files:
+            excluded_files["oversized"].append(str(file_path))
+        
         print(f"Split into {len(chunks)} parts")
+        if oversized_files:
+            print(f"Skipped {len(oversized_files)} oversized file(s)")
         print()
         
         # Generate each part
