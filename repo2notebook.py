@@ -449,12 +449,20 @@ def get_language(file_path: Path) -> str:
 # MAIN PROCESSING
 # ============================================================================
 
-def collect_files(repo_path: Path, exclude_patterns: list[str] = None) -> tuple[list[Path], dict]:
-    """Collect all files to process. Returns (files, stats)."""
+def collect_files(repo_path: Path, exclude_patterns: list[str] = None) -> tuple[list[Path], dict, dict]:
+    """Collect all files to process. Returns (files, stats, excluded_files)."""
     gitignore_patterns = parse_gitignore(repo_path)
     repo2notebookignore_patterns = parse_repo2notebookignore(repo_path)
     exclude_patterns = exclude_patterns or []
     files = []
+    excluded_files = {
+        "repo2notebookignore": [],
+        "custom": [],
+        "gitignore": [],
+        "binary": [],
+        "non_text": [],
+        "default_patterns": [],
+    }
     stats = {
         "total_scanned": 0,
         "excluded_dir": 0,
@@ -481,6 +489,7 @@ def collect_files(repo_path: Path, exclude_patterns: list[str] = None) -> tuple[
             # Skip excluded files
             if should_exclude_file(filename):
                 stats["excluded_file"] += 1
+                excluded_files["default_patterns"].append(str(rel_root / filename if str(rel_root) != "." else Path(filename)))
                 continue
             
             file_path = Path(root) / filename
@@ -490,26 +499,31 @@ def collect_files(repo_path: Path, exclude_patterns: list[str] = None) -> tuple[
             # Check .repo2notebookignore patterns (highest priority)
             if repo2notebookignore_patterns and matches_gitignore(rel_path_str, repo2notebookignore_patterns):
                 stats["excluded_repo2notebookignore"] += 1
+                excluded_files["repo2notebookignore"].append(rel_path_str)
                 continue
             
             # Check custom exclude patterns
             if exclude_patterns and matches_gitignore(rel_path_str, exclude_patterns):
                 stats["excluded_custom"] += 1
+                excluded_files["custom"].append(rel_path_str)
                 continue
             
             # Skip gitignore matches
             if matches_gitignore(rel_path_str, gitignore_patterns):
                 stats["excluded_gitignore"] += 1
+                excluded_files["gitignore"].append(rel_path_str)
                 continue
             
             # Check if binary
             if is_binary_file(file_path):
                 stats["excluded_binary"] += 1
+                excluded_files["binary"].append(rel_path_str)
                 continue
             
             # Skip non-text files
             if not is_text_file(file_path):
                 stats["excluded_non_text"] += 1
+                excluded_files["non_text"].append(rel_path_str)
                 continue
             
             files.append(file_path)
@@ -517,7 +531,7 @@ def collect_files(repo_path: Path, exclude_patterns: list[str] = None) -> tuple[
     
     # Sort for consistent output
     files.sort(key=lambda p: str(p.relative_to(repo_path)).lower())
-    return files, stats
+    return files, stats, excluded_files
 
 
 def print_collection_stats(stats: dict):
@@ -545,6 +559,131 @@ def print_collection_stats(stats: dict):
             print(f"    - {stats['excluded_binary']} binary files (images, executables, etc.)")
         if stats['excluded_non_text'] > 0:
             print(f"    - {stats['excluded_non_text']} non-text files")
+
+
+def generate_excluded_report(repo_path: Path, excluded_files: dict, output_dir: Path) -> Path:
+    """Generate markdown report of excluded files organized by extension."""
+    from datetime import datetime
+    from collections import defaultdict
+    
+    # Collect all excluded files
+    all_excluded = []
+    for category, files in excluded_files.items():
+        for file in files:
+            all_excluded.append((file, category))
+    
+    if not all_excluded:
+        return None
+    
+    # Group by extension
+    by_extension = defaultdict(list)
+    no_extension = []
+    
+    for file_path, category in all_excluded:
+        path_obj = Path(file_path)
+        ext = path_obj.suffix.lower()
+        
+        if ext:
+            by_extension[ext].append((file_path, category))
+        else:
+            no_extension.append((file_path, category))
+    
+    # Sort extensions alphabetically
+    sorted_extensions = sorted(by_extension.keys())
+    
+    # Generate markdown content
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines = [
+        "# Excluded Files Report",
+        "",
+        f"**Generated:** {timestamp}  ",
+        f"**Repository:** `{repo_path}`  ",
+        f"**Total excluded:** {len(all_excluded)} files",
+        "",
+        "---",
+        "",
+    ]
+    
+    # Summary by extension
+    lines.append("## Summary by Extension")
+    lines.append("")
+    
+    for ext in sorted_extensions:
+        count = len(by_extension[ext])
+        lines.append(f"- **{ext}**: {count} files")
+    
+    if no_extension:
+        lines.append(f"- **(no extension)**: {len(no_extension)} files")
+    
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    
+    # Detailed listing by extension
+    lines.append("## Files by Extension")
+    lines.append("")
+    
+    for ext in sorted_extensions:
+        files_list = by_extension[ext]
+        count = len(files_list)
+        
+        lines.append(f"### {ext} ({count} files)")
+        lines.append("")
+        
+        # Sort files alphabetically
+        sorted_files = sorted(files_list, key=lambda x: x[0].lower())
+        
+        # Group by category for clarity
+        by_category = defaultdict(list)
+        for file_path, category in sorted_files:
+            by_category[category].append(file_path)
+        
+        category_names = {
+            "repo2notebookignore": ".repo2notebookignore",
+            "custom": "Custom patterns",
+            "gitignore": ".gitignore",
+            "binary": "Binary files",
+            "non_text": "Non-text files",
+            "default_patterns": "Default patterns",
+        }
+        
+        for category in ["repo2notebookignore", "custom", "gitignore", "binary", "non_text", "default_patterns"]:
+            if category in by_category:
+                category_files = by_category[category]
+                if category_files:
+                    lines.append(f"**{category_names[category]}** ({len(category_files)} files):")
+                    for file_path in sorted(category_files):
+                        lines.append(f"- `{file_path}`")
+                    lines.append("")
+        
+        lines.append("")
+    
+    # Files without extension
+    if no_extension:
+        lines.append(f"### (no extension) ({len(no_extension)} files)")
+        lines.append("")
+        
+        sorted_no_ext = sorted(no_extension, key=lambda x: x[0].lower())
+        
+        by_category = defaultdict(list)
+        for file_path, category in sorted_no_ext:
+            by_category[category].append(file_path)
+        
+        for category in ["repo2notebookignore", "custom", "gitignore", "binary", "non_text", "default_patterns"]:
+            if category in by_category:
+                category_files = by_category[category]
+                if category_files:
+                    lines.append(f"**{category_names[category]}** ({len(category_files)} files):")
+                    for file_path in sorted(category_files):
+                        lines.append(f"- `{file_path}`")
+                    lines.append("")
+    
+    # Write to file
+    report_path = output_dir / "EXCLUDED.md"
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    
+    return report_path
 
 
 def read_file_content(file_path: Path) -> str | None:
@@ -888,7 +1027,7 @@ Examples:
     
     # Collect files
     print("Scanning files...")
-    files, stats = collect_files(repo_path, exclude_patterns)
+    files, stats, excluded_files = collect_files(repo_path, exclude_patterns)
     print_collection_stats(stats)
     print()
     
@@ -990,6 +1129,12 @@ Examples:
         print(f"✓ Output: {output_path}")
         print()
         print("✅ Done! Upload the markdown file to NotebookLM.")
+    
+    # Generate excluded files report
+    if excluded_files:
+        report_path = generate_excluded_report(repo_path, excluded_files, output_dir)
+        if report_path:
+            print(f"📄 Excluded files report: {report_path}")
     
     # Update .gitignore
     if update_gitignore(repo_path):
