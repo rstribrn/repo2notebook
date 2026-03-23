@@ -29,6 +29,8 @@ AUTO_OPEN=false
 AUTO_SPLIT=true
 MAX_WORDS=400000
 OUTPUT_DIR="_repo2notebook"
+EXCLUDE_PATTERNS=()
+EXCLUDE_FILE=""
 
 # Sensitive file/directory patterns (in addition to .gitignore)
 SENSITIVE_PATTERNS=(
@@ -88,6 +90,8 @@ OPTIONS:
     --split                 Enable auto-split for large repos (default: ON)
     --no-split              Disable auto-split (error if too large)
     --max-words NUM         Max words per file (default: ${MAX_WORDS})
+    --exclude PATTERN       Exclude files matching pattern (can use multiple times)
+    --exclude-file FILE     Read exclude patterns from file (one per line)
     --max-files NUM         Max number of files (default: ${MAX_FILE_COUNT})
     --max-size MB           Max total size in MB (default: ${MAX_TOTAL_SIZE_MB})
     --output-dir DIR        Output directory (default: ${OUTPUT_DIR})
@@ -107,6 +111,12 @@ EXAMPLES:
 
     # Custom word limit
     $(basename "$0") --max-words 300000 /path/to/repo
+
+    # Exclude specific patterns
+    $(basename "$0") --exclude "test_*" --exclude "*.log" /path/to/repo
+
+    # Use exclude file
+    $(basename "$0") --exclude-file .excludes /path/to/repo
 
 EOF
 }
@@ -372,6 +382,16 @@ run_repo2notebook() {
         cmd="$cmd --max-words $MAX_WORDS"
     fi
     
+    # Add exclude patterns
+    for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+        cmd="$cmd --exclude \"$pattern\""
+    done
+    
+    # Add exclude file
+    if [ -n "$EXCLUDE_FILE" ]; then
+        cmd="$cmd --exclude-file \"$EXCLUDE_FILE\""
+    fi
+    
     log_verbose "Command: $cmd"
     echo
     
@@ -510,6 +530,14 @@ main() {
                 MAX_WORDS="$2"
                 shift 2
                 ;;
+            --exclude)
+                EXCLUDE_PATTERNS+=("$2")
+                shift 2
+                ;;
+            --exclude-file)
+                EXCLUDE_FILE="$2"
+                shift 2
+                ;;
             --max-files)
                 MAX_FILE_COUNT="$2"
                 shift 2
@@ -542,6 +570,18 @@ main() {
         log_verbose "Auto-split: ${GREEN}enabled${NC} (max words: $MAX_WORDS)"
     else
         log_verbose "Auto-split: ${YELLOW}disabled${NC} (strict mode)"
+    fi
+    
+    # Display exclude patterns if any
+    if [ ${#EXCLUDE_PATTERNS[@]} -gt 0 ]; then
+        log_verbose "Exclude patterns: ${#EXCLUDE_PATTERNS[@]}"
+        for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+            log_verbose "  • $pattern"
+        done
+    fi
+    
+    if [ -n "$EXCLUDE_FILE" ]; then
+        log_verbose "Exclude file: $EXCLUDE_FILE"
     fi
     echo
     
