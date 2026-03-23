@@ -1,6 +1,31 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
 
-# repo2notebook
-# https://github.com/rstribrn/repo2notebook
-_repo2notebook/
-repo2notebook.py
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+*.md.tmp
+output/
+*.heapsnapshot

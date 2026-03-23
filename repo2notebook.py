@@ -619,6 +619,16 @@ def generate_excluded_report(repo_path: Path, excluded_files: dict, output_dir: 
     lines.append("---")
     lines.append("")
     
+    # Category names mapping
+    category_names = {
+        "repo2notebookignore": ".repo2notebookignore",
+        "custom": "Custom patterns",
+        "gitignore": ".gitignore",
+        "binary": "Binary files",
+        "non_text": "Non-text files",
+        "default_patterns": "Default patterns",
+    }
+    
     # Detailed listing by extension
     lines.append("## Files by Extension")
     lines.append("")
@@ -631,21 +641,12 @@ def generate_excluded_report(repo_path: Path, excluded_files: dict, output_dir: 
         lines.append("")
         
         # Sort files alphabetically
-        sorted_files = sorted(files_list, key=lambda x: x[0].lower())
+        sorted_files = sorted(files_list, key=lambda x: str(x[0]).lower())
         
         # Group by category for clarity
         by_category = defaultdict(list)
         for file_path, category in sorted_files:
             by_category[category].append(file_path)
-        
-        category_names = {
-            "repo2notebookignore": ".repo2notebookignore",
-            "custom": "Custom patterns",
-            "gitignore": ".gitignore",
-            "binary": "Binary files",
-            "non_text": "Non-text files",
-            "default_patterns": "Default patterns",
-        }
         
         for category in ["repo2notebookignore", "custom", "gitignore", "binary", "non_text", "default_patterns"]:
             if category in by_category:
@@ -663,7 +664,7 @@ def generate_excluded_report(repo_path: Path, excluded_files: dict, output_dir: 
         lines.append(f"### (no extension) ({len(no_extension)} files)")
         lines.append("")
         
-        sorted_no_ext = sorted(no_extension, key=lambda x: x[0].lower())
+        sorted_no_ext = sorted(no_extension, key=lambda x: str(x[0]).lower())
         
         by_category = defaultdict(list)
         for file_path, category in sorted_no_ext:
