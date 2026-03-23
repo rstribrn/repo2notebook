@@ -263,6 +263,25 @@ def parse_gitignore(repo_path: Path) -> list[str]:
     return patterns
 
 
+def parse_repo2notebookignore(repo_path: Path) -> list[str]:
+    """Parse .repo2notebookignore and return list of patterns."""
+    ignore_path = repo_path / ".repo2notebookignore"
+    patterns = []
+    
+    if ignore_path.exists():
+        try:
+            with open(ignore_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    line = line.strip()
+                    # Skip comments and empty lines
+                    if line and not line.startswith("#"):
+                        patterns.append(line)
+        except Exception:
+            pass
+    
+    return patterns
+
+
 def matches_gitignore(path: str, patterns: list[str]) -> bool:
     """Check if path matches any gitignore pattern."""
     # Normalize path separators
@@ -433,12 +452,14 @@ def get_language(file_path: Path) -> str:
 def collect_files(repo_path: Path, exclude_patterns: list[str] = None) -> tuple[list[Path], dict]:
     """Collect all files to process. Returns (files, stats)."""
     gitignore_patterns = parse_gitignore(repo_path)
+    repo2notebookignore_patterns = parse_repo2notebookignore(repo_path)
     exclude_patterns = exclude_patterns or []
     files = []
     stats = {
         "total_scanned": 0,
         "excluded_dir": 0,
         "excluded_file": 0,
+        "excluded_repo2notebookignore": 0,
         "excluded_gitignore": 0,
         "excluded_binary": 0,
         "excluded_non_text": 0,
@@ -465,6 +486,11 @@ def collect_files(repo_path: Path, exclude_patterns: list[str] = None) -> tuple[
             file_path = Path(root) / filename
             rel_path = rel_root / filename if str(rel_root) != "." else Path(filename)
             rel_path_str = str(rel_path)
+            
+            # Check .repo2notebookignore patterns (highest priority)
+            if repo2notebookignore_patterns and matches_gitignore(rel_path_str, repo2notebookignore_patterns):
+                stats["excluded_repo2notebookignore"] += 1
+                continue
             
             # Check custom exclude patterns
             if exclude_patterns and matches_gitignore(rel_path_str, exclude_patterns):
@@ -500,8 +526,8 @@ def print_collection_stats(stats: dict):
     print(f"  • Included: {stats['included']} files")
     
     excluded_total = (stats['excluded_dir'] + stats['excluded_file'] + 
-                     stats['excluded_gitignore'] + stats['excluded_binary'] + 
-                     stats['excluded_non_text'] + stats['excluded_custom'])
+                     stats['excluded_repo2notebookignore'] + stats['excluded_gitignore'] + 
+                     stats['excluded_binary'] + stats['excluded_non_text'] + stats['excluded_custom'])
     
     if excluded_total > 0:
         print(f"  • Excluded: {excluded_total} files/dirs")
@@ -509,6 +535,8 @@ def print_collection_stats(stats: dict):
             print(f"    - {stats['excluded_dir']} directories (node_modules, .git, etc.)")
         if stats['excluded_file'] > 0:
             print(f"    - {stats['excluded_file']} files (lock files, .DS_Store, etc.)")
+        if stats['excluded_repo2notebookignore'] > 0:
+            print(f"    - {stats['excluded_repo2notebookignore']} files (.repo2notebookignore)")
         if stats['excluded_custom'] > 0:
             print(f"    - {stats['excluded_custom']} files (custom exclude patterns)")
         if stats['excluded_gitignore'] > 0:
@@ -838,6 +866,13 @@ Examples:
         sys.exit(1)
     
     print(f"Processing: {repo_path}")
+    
+    # Check for .repo2notebookignore
+    repo2notebookignore_path = repo_path / ".repo2notebookignore"
+    if repo2notebookignore_path.exists():
+        ignore_patterns = parse_repo2notebookignore(repo_path)
+        if ignore_patterns:
+            print(f"Found .repo2notebookignore with {len(ignore_patterns)} patterns")
     
     if exclude_patterns:
         print(f"Custom exclude patterns: {len(exclude_patterns)}")

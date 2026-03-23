@@ -33,6 +33,9 @@ python3 repo2notebook.py /path/to/repo
 
 # Auto-split large repositories
 python3 repo2notebook.py --split /path/to/repo
+
+# Use .repo2notebookignore file for custom exclusions
+# (Just create .repo2notebookignore in your repo root)
 ```
 
 ### Using the Wrapper (Recommended)
@@ -442,7 +445,37 @@ echo "tests/" >> .gitignore
 
 Files matching your `.gitignore` patterns are also excluded.
 
-### 🔧 Custom Exclusions
+### 📝 .repo2notebookignore File
+
+Create a `.repo2notebookignore` file in your repository root (like `.gitignore`):
+
+```bash
+# .repo2notebookignore example
+# Ignore test files
+test_*
+*_test.py
+*.spec.js
+
+# Ignore logs and temp files
+*.log
+*.tmp
+debug/
+
+# Ignore sensitive files
+*secret*
+*password*
+credentials.json
+
+# Patterns work like .gitignore
+# - Comments start with #
+# - Blank lines are ignored
+# - Supports wildcards (*, ?, **)
+# - Directory patterns end with /
+```
+
+**Priority:** `.repo2notebookignore` patterns are checked **first**, before other exclusions.
+
+### 🔧 Custom Exclusions (CLI)
 
 Use `--exclude` to add your own patterns:
 
