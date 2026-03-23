@@ -174,6 +174,21 @@ The tool recognizes 50+ languages with proper syntax highlighting:
 **Shell**: Bash, PowerShell, Batch  
 **Others**: GraphQL, Terraform, Dockerfile, Protobuf, and more
 
+## 🔒 Binary File Detection
+
+Automatically detects and excludes 50+ binary file types:
+
+**Images**: PNG, JPG, GIF, BMP, ICO, SVG, WebP, TIFF  
+**Videos**: MP4, AVI, MOV, WMV, FLV, MKV, WebM  
+**Audio**: MP3, WAV, OGG, FLAC, AAC, WMA, M4A  
+**Archives**: ZIP, TAR, GZ, BZ2, 7Z, RAR, XZ, TGZ  
+**Executables**: EXE, DLL, SO, DYLIB, APP, DEB, RPM, APK  
+**Documents**: PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, ODT/ODS/ODP  
+**Databases**: DB, SQLite, MDB  
+**Fonts**: TTF, OTF, WOFF, WOFF2, EOT  
+**Java Keystores**: JKS, KEYSTORE, TRUSTSTORE, P12, PFX, CER, CRT, DER, PEM  
+**Other**: BIN, DAT, PAK, ISO, IMG, DMG
+
 ## 🔧 Installation
 
 ### 1. Download the Scripts
@@ -407,7 +422,7 @@ echo "tests/" >> .gitignore
 - Compiled files (`*.pyc`, `*.pyo`, `*.class`, `*.o`, `*.obj`, `*.dll`, `*.exe`, `*.so`)
 - Minified files (`*.min.js`, `*.min.css`, `*.map`)
 - Bundle files (`*.chunk.js`, `*.bundle.js`, `*.bundle.css`)
-- Binary files (images, videos, executables, archives - see Binary Detection)
+- Binary files (images, videos, executables, archives, **Java keystores** - see Binary Detection)
 - OS files (`.DS_Store`, `Thumbs.db`, `desktop.ini`)
 - Secrets (`.env`, `.env.local`, `.env.production`)
 

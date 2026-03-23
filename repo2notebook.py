@@ -336,6 +336,9 @@ def is_binary_file(file_path: Path) -> bool:
         ".db", ".sqlite", ".sqlite3", ".mdb",
         # Fonts
         ".ttf", ".otf", ".woff", ".woff2", ".eot",
+        # Java keystores and certificates
+        ".jks", ".keystore", ".truststore", ".cer", ".crt", ".der",
+        ".p7b", ".p7c", ".p12", ".pfx", ".pem",
         # Other binary
         ".bin", ".dat", ".pak", ".iso", ".img", ".dmg",
     }
