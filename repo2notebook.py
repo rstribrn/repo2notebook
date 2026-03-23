@@ -247,8 +247,66 @@ def should_exclude_file(file_name: str) -> bool:
     return False
 
 
+def is_binary_file(file_path: Path) -> bool:
+    """Check if file is binary (cannot be converted to text)."""
+    # Known binary extensions
+    binary_extensions = {
+        # Images
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg", ".webp", ".tiff", ".tif",
+        # Videos
+        ".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv", ".webm", ".m4v",
+        # Audio
+        ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a",
+        # Archives
+        ".zip", ".tar", ".gz", ".bz2", ".7z", ".rar", ".xz", ".tgz",
+        # Executables
+        ".exe", ".dll", ".so", ".dylib", ".app", ".deb", ".rpm", ".apk",
+        # Compiled
+        ".o", ".obj", ".class", ".pyc", ".pyo", ".elc",
+        # Documents (binary formats)
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".odt", ".ods", ".odp",
+        # Databases
+        ".db", ".sqlite", ".sqlite3", ".mdb",
+        # Fonts
+        ".ttf", ".otf", ".woff", ".woff2", ".eot",
+        # Other binary
+        ".bin", ".dat", ".pak", ".iso", ".img", ".dmg",
+    }
+    
+    ext = file_path.suffix.lower()
+    
+    if ext in binary_extensions:
+        return True
+    
+    # Try to read first bytes to detect binary
+    try:
+        with open(file_path, "rb") as f:
+            chunk = f.read(8192)  # Read more bytes for better detection
+            
+            # Check for null bytes (strong indicator of binary)
+            if b"\x00" in chunk:
+                return True
+            
+            # Check for high ratio of non-text bytes
+            # Text files should have mostly printable ASCII/UTF-8
+            non_text_bytes = sum(1 for byte in chunk if byte < 0x20 and byte not in (0x09, 0x0A, 0x0D))
+            if len(chunk) > 0 and non_text_bytes / len(chunk) > 0.3:
+                return True
+            
+            return False
+            
+    except Exception:
+        # If we can't read it, assume binary
+        return True
+
+
 def is_text_file(file_path: Path) -> bool:
-    """Check if file is likely a text file."""
+    """Check if file is likely a text file that can be converted to markdown."""
+    # First check if it's binary
+    if is_binary_file(file_path):
+        return False
+    
     # Known text extensions
     text_extensions = set(EXT_TO_LANG.keys()) | {
         ".txt", ".rst", ".ini", ".cfg", ".conf", ".config",
@@ -271,16 +329,8 @@ def is_text_file(file_path: Path) -> bool:
     if not ext and name in {"Makefile", "Dockerfile", "Procfile", "Gemfile", "Rakefile"}:
         return True
     
-    # Try to read first bytes to detect binary
-    try:
-        with open(file_path, "rb") as f:
-            chunk = f.read(1024)
-            # Binary files typically have null bytes
-            if b"\x00" in chunk:
-                return False
-            return True
-    except Exception:
-        return False
+    # For other files, assume text if not detected as binary above
+    return True
 
 
 def get_language(file_path: Path) -> str:
@@ -304,20 +354,34 @@ def get_language(file_path: Path) -> str:
 # MAIN PROCESSING
 # ============================================================================
 
-def collect_files(repo_path: Path) -> list[Path]:
-    """Collect all files to process."""
+def collect_files(repo_path: Path) -> tuple[list[Path], dict]:
+    """Collect all files to process. Returns (files, stats)."""
     gitignore_patterns = parse_gitignore(repo_path)
     files = []
+    stats = {
+        "total_scanned": 0,
+        "excluded_dir": 0,
+        "excluded_file": 0,
+        "excluded_gitignore": 0,
+        "excluded_binary": 0,
+        "excluded_non_text": 0,
+        "included": 0,
+    }
     
     for root, dirs, filenames in os.walk(repo_path):
         # Filter directories in-place to prevent descending
+        original_dirs = dirs.copy()
         dirs[:] = [d for d in dirs if not should_exclude_dir(d)]
+        stats["excluded_dir"] += len(original_dirs) - len(dirs)
         
         rel_root = Path(root).relative_to(repo_path)
         
         for filename in filenames:
+            stats["total_scanned"] += 1
+            
             # Skip excluded files
             if should_exclude_file(filename):
+                stats["excluded_file"] += 1
                 continue
             
             file_path = Path(root) / filename
@@ -325,17 +389,48 @@ def collect_files(repo_path: Path) -> list[Path]:
             
             # Skip gitignore matches
             if matches_gitignore(str(rel_path), gitignore_patterns):
+                stats["excluded_gitignore"] += 1
+                continue
+            
+            # Check if binary
+            if is_binary_file(file_path):
+                stats["excluded_binary"] += 1
                 continue
             
             # Skip non-text files
             if not is_text_file(file_path):
+                stats["excluded_non_text"] += 1
                 continue
             
             files.append(file_path)
+            stats["included"] += 1
     
     # Sort for consistent output
     files.sort(key=lambda p: str(p.relative_to(repo_path)).lower())
-    return files
+    return files, stats
+
+
+def print_collection_stats(stats: dict):
+    """Print statistics about file collection."""
+    print(f"Scanned {stats['total_scanned']} files:")
+    print(f"  • Included: {stats['included']} files")
+    
+    excluded_total = (stats['excluded_dir'] + stats['excluded_file'] + 
+                     stats['excluded_gitignore'] + stats['excluded_binary'] + 
+                     stats['excluded_non_text'])
+    
+    if excluded_total > 0:
+        print(f"  • Excluded: {excluded_total} files/dirs")
+        if stats['excluded_dir'] > 0:
+            print(f"    - {stats['excluded_dir']} directories (node_modules, .git, etc.)")
+        if stats['excluded_file'] > 0:
+            print(f"    - {stats['excluded_file']} files (lock files, .DS_Store, etc.)")
+        if stats['excluded_gitignore'] > 0:
+            print(f"    - {stats['excluded_gitignore']} files (gitignore patterns)")
+        if stats['excluded_binary'] > 0:
+            print(f"    - {stats['excluded_binary']} binary files (images, executables, etc.)")
+        if stats['excluded_non_text'] > 0:
+            print(f"    - {stats['excluded_non_text']} non-text files")
 
 
 def read_file_content(file_path: Path) -> str | None:
@@ -625,8 +720,8 @@ Examples:
     
     # Collect files
     print("Scanning files...")
-    files = collect_files(repo_path)
-    print(f"Found {len(files)} files to include")
+    files, stats = collect_files(repo_path)
+    print_collection_stats(stats)
     print()
     
     if not files:
