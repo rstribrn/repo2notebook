@@ -176,7 +176,7 @@ The tool recognizes 50+ languages with proper syntax highlighting:
 
 ## 🔒 Binary File Detection
 
-Automatically detects and excludes 50+ binary file types:
+Automatically detects and excludes 70+ binary file types:
 
 **Images**: PNG, JPG, GIF, BMP, ICO, SVG, WebP, TIFF  
 **Videos**: MP4, AVI, MOV, WMV, FLV, MKV, WebM  
@@ -187,6 +187,7 @@ Automatically detects and excludes 50+ binary file types:
 **Databases**: DB, SQLite, MDB  
 **Fonts**: TTF, OTF, WOFF, WOFF2, EOT  
 **Java Keystores**: JKS, KEYSTORE, TRUSTSTORE, P12, PFX, CER, CRT, DER, PEM  
+**Oracle Fusion Middleware**: FMB, FMX, MMB, MMX, PLL, PLX, RDF, REP, REX, OLB, OGD  
 **Other**: BIN, DAT, PAK, ISO, IMG, DMG
 
 ## 🔧 Installation

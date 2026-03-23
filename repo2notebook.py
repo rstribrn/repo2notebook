@@ -339,6 +339,13 @@ def is_binary_file(file_path: Path) -> bool:
         # Java keystores and certificates
         ".jks", ".keystore", ".truststore", ".cer", ".crt", ".der",
         ".p7b", ".p7c", ".p12", ".pfx", ".pem",
+        # Oracle Fusion Middleware (Forms, Reports, Libraries)
+        ".fmb", ".fmx",         # Oracle Forms Module (binary source, executable)
+        ".mmb", ".mmx",         # Oracle Menu Module (binary source, executable)
+        ".pll", ".plx",         # Oracle PL/SQL Library (source, executable)
+        ".rdf", ".rep", ".rex", # Oracle Reports (definition, template, executable)
+        ".olb",                 # Oracle Object Library
+        ".ogd",                 # Oracle Graphics Display
         # Other binary
         ".bin", ".dat", ".pak", ".iso", ".img", ".dmg",
     }

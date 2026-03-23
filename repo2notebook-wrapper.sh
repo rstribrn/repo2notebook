@@ -77,6 +77,8 @@ BINARY_EXTENSIONS=(
     ".ttf" ".otf" ".woff" ".woff2" ".eot"
     # Java keystores
     ".jks" ".keystore" ".truststore" ".cer" ".crt" ".der" ".p7b" ".p7c" ".p12" ".pfx" ".pem"
+    # Oracle Fusion Middleware (Forms, Reports, Libraries)
+    ".fmb" ".fmx" ".mmb" ".mmx" ".pll" ".plx" ".rdf" ".rep" ".rex" ".olb" ".ogd"
     # Other binary
     ".bin" ".dat" ".pak" ".iso" ".img" ".dmg"
 )
