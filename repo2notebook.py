@@ -29,7 +29,7 @@ from datetime import datetime
 # ============================================================================
 
 OUTPUT_DIR = "_repo2notebook"
-GITHUB_URL = "https://github.com/Appaholics/repo2notebook"
+GITHUB_URL = "https://github.com/rstribrn/repo2notebook"
 
 # NotebookLM limits (with safety margin)
 MAX_WORDS_PER_FILE = 400000  # NotebookLM limit is ~500k, we use 400k for safety
