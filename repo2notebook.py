@@ -3,10 +3,15 @@
 repo2notebook - Convert any code repository to NotebookLM-compatible format
 
 Usage:
-    python repo2notebook.py              # Process current directory
-    python repo2notebook.py /path/to/repo  # Process specific directory
+    python repo2notebook.py [OPTIONS] [DIRECTORY]
+    
+Options:
+    --max-words NUM      Maximum words per output file (default: 400000)
+    --split              Enable automatic splitting if exceeds limit
+    --no-split           Disable splitting (error if too large)
+    -h, --help           Show this help message
 
-Output: _repo2notebook/notebook.md
+Output: _repo2notebook/notebook.md (or multiple files if split)
 
 GitHub: https://github.com/Appaholics/repo2notebook
 License: MIT
@@ -15,6 +20,7 @@ License: MIT
 import os
 import sys
 import fnmatch
+import argparse
 from pathlib import Path
 from datetime import datetime
 
@@ -24,6 +30,10 @@ from datetime import datetime
 
 OUTPUT_DIR = "_repo2notebook"
 GITHUB_URL = "https://github.com/Appaholics/repo2notebook"
+
+# NotebookLM limits (with safety margin)
+MAX_WORDS_PER_FILE = 400000  # NotebookLM limit is ~500k, we use 400k for safety
+MAX_FILE_SIZE_MB = 45        # NotebookLM limit is 50MB, we use 45MB for safety
 
 # Always exclude (hardcoded, cannot override)
 ALWAYS_EXCLUDE_DIRS = {
@@ -344,8 +354,8 @@ def read_file_content(file_path: Path) -> str | None:
     return None
 
 
-def generate_markdown(repo_path: Path, files: list[Path]) -> str:
-    """Generate markdown content from files."""
+def generate_markdown(repo_path: Path, files: list[Path]) -> tuple[str, int]:
+    """Generate markdown content from files. Returns (content, word_count)."""
     repo_name = repo_path.name
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     
@@ -385,6 +395,140 @@ def generate_markdown(repo_path: Path, files: list[Path]) -> str:
     return "\n".join(lines), word_count
 
 
+def split_files_into_chunks(files: list[Path], repo_path: Path, max_words: int) -> list[list[Path]]:
+    """Split files into chunks that fit within word limit."""
+    chunks = []
+    current_chunk = []
+    current_words = 0
+    
+    for file_path in files:
+        content = read_file_content(file_path)
+        if content is None:
+            continue
+        
+        file_words = len(content.split())
+        
+        # If single file exceeds limit, put it in its own chunk
+        if file_words > max_words:
+            if current_chunk:
+                chunks.append(current_chunk)
+                current_chunk = []
+                current_words = 0
+            chunks.append([file_path])
+            continue
+        
+        # If adding this file would exceed limit, start new chunk
+        if current_words + file_words > max_words:
+            if current_chunk:
+                chunks.append(current_chunk)
+            current_chunk = [file_path]
+            current_words = file_words
+        else:
+            current_chunk.append(file_path)
+            current_words += file_words
+    
+    # Add remaining chunk
+    if current_chunk:
+        chunks.append(current_chunk)
+    
+    return chunks
+
+
+def generate_split_markdown(repo_path: Path, files: list[Path], part_num: int, total_parts: int) -> tuple[str, int]:
+    """Generate markdown content for a split part."""
+    repo_name = repo_path.name
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    lines = [
+        f"# Repository: {repo_name} (Part {part_num}/{total_parts})",
+        f"",
+        f"Generated: {timestamp}",
+        f"",
+        f"Files in this part: {len(files)}",
+        f"",
+        f"---",
+        f"",
+    ]
+    
+    word_count = 0
+    
+    for file_path in files:
+        rel_path = file_path.relative_to(repo_path)
+        content = read_file_content(file_path)
+        
+        if content is None:
+            continue
+        
+        language = get_language(file_path)
+        
+        lines.append(f"## File: {rel_path}")
+        lines.append("")
+        lines.append(f"```{language}")
+        lines.append(content.rstrip())
+        lines.append("```")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        
+        word_count += len(content.split())
+    
+    return "\n".join(lines), word_count
+
+
+def check_notebooklm_limits(content: str, word_count: int) -> tuple[bool, str]:
+    """Check if content meets NotebookLM limits. Returns (is_valid, warning_message)."""
+    size_mb = len(content.encode('utf-8')) / (1024 * 1024)
+    
+    warnings = []
+    is_valid = True
+    
+    if word_count > MAX_WORDS_PER_FILE:
+        warnings.append(f"⚠ Word count ({word_count:,}) exceeds NotebookLM limit ({MAX_WORDS_PER_FILE:,})")
+        is_valid = False
+    
+    if size_mb > MAX_FILE_SIZE_MB:
+        warnings.append(f"⚠ File size ({size_mb:.1f}MB) exceeds NotebookLM limit ({MAX_FILE_SIZE_MB}MB)")
+        is_valid = False
+    
+    if not is_valid and warnings:
+        return False, "\n".join(warnings)
+    
+    return True, ""
+
+
+def generate_manifest(repo_path: Path, output_files: list[Path], total_words: int):
+    """Generate a manifest file listing all output parts."""
+    manifest_content = [
+        f"# Repository Conversion Manifest",
+        f"",
+        f"Repository: {repo_path.name}",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"Total words: {total_words:,}",
+        f"Total parts: {len(output_files)}",
+        f"",
+        f"## Output Files",
+        f"",
+    ]
+    
+    for i, output_file in enumerate(output_files, 1):
+        size_mb = output_file.stat().st_size / (1024 * 1024)
+        manifest_content.append(f"{i}. `{output_file.name}` ({size_mb:.1f}MB)")
+    
+    manifest_content.extend([
+        f"",
+        f"## Instructions",
+        f"",
+        f"Upload all parts to NotebookLM as separate sources:",
+        f"1. Open NotebookLM (notebooklm.google.com)",
+        f"2. Create a new notebook",
+        f"3. Upload each part file as a separate source",
+        f"4. NotebookLM will combine them for unified search and analysis",
+        f"",
+    ])
+    
+    return "\n".join(manifest_content)
+
+
 def update_gitignore(repo_path: Path):
     """Add our output to .gitignore."""
     gitignore_path = repo_path / ".gitignore"
@@ -421,11 +565,51 @@ def update_gitignore(repo_path: Path):
 
 
 def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description='Convert code repository to NotebookLM-compatible format',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s                     # Process current directory
+  %(prog)s /path/to/repo       # Process specific directory
+  %(prog)s --split .           # Auto-split if exceeds limits
+  %(prog)s --max-words 300000  # Custom word limit
+        """
+    )
+    
+    parser.add_argument(
+        'directory',
+        nargs='?',
+        default='.',
+        help='Path to repository (default: current directory)'
+    )
+    
+    parser.add_argument(
+        '--max-words',
+        type=int,
+        default=MAX_WORDS_PER_FILE,
+        help=f'Maximum words per output file (default: {MAX_WORDS_PER_FILE:,})'
+    )
+    
+    parser.add_argument(
+        '--split',
+        action='store_true',
+        help='Enable automatic splitting if exceeds limit'
+    )
+    
+    parser.add_argument(
+        '--no-split',
+        action='store_true',
+        help='Disable splitting (error if too large)'
+    )
+    
+    args = parser.parse_args()
+    
     # Determine repo path
-    if len(sys.argv) > 1:
-        repo_path = Path(sys.argv[1]).resolve()
-    else:
-        repo_path = Path.cwd()
+    repo_path = Path(args.directory).resolve()
+    max_words = args.max_words
+    auto_split = args.split or not args.no_split  # Default is True unless --no-split
     
     # Validate
     if not repo_path.exists():
@@ -449,30 +633,104 @@ def main():
         print("No files found to process.")
         sys.exit(0)
     
-    # Generate markdown
-    print("Generating markdown...")
-    content, word_count = generate_markdown(repo_path, files)
-    print(f"Word count: {word_count:,}")
-    print()
-    
     # Create output directory
     output_dir = repo_path / OUTPUT_DIR
     output_dir.mkdir(exist_ok=True)
     
-    # Write output
-    output_filename = get_output_filename(repo_path)
-    output_path = output_dir / output_filename
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(content)
+    # Generate markdown (check if splitting needed)
+    print("Generating markdown...")
+    content, word_count = generate_markdown(repo_path, files)
     
-    print(f"✓ Output: {output_path}")
+    # Check NotebookLM limits
+    is_valid, warning = check_notebooklm_limits(content, word_count)
+    
+    if not is_valid:
+        print(warning)
+        print()
+        
+        if not auto_split:
+            print("❌ Output exceeds NotebookLM limits!")
+            print()
+            print("Options:")
+            print("  1. Run with --split to automatically split into multiple files")
+            print("  2. Run with --max-words <number> to set custom limit")
+            print("  3. Manually reduce repository size")
+            sys.exit(1)
+        
+        print("📦 Splitting output into multiple files...")
+        print()
+        
+        # Split files into chunks
+        chunks = split_files_into_chunks(files, repo_path, max_words)
+        print(f"Split into {len(chunks)} parts")
+        print()
+        
+        # Generate each part
+        output_files = []
+        total_words = 0
+        
+        for i, chunk_files in enumerate(chunks, 1):
+            part_content, part_words = generate_split_markdown(
+                repo_path, chunk_files, i, len(chunks)
+            )
+            
+            total_words += part_words
+            
+            # Generate filename
+            output_filename = get_output_filename(repo_path)
+            base_name = output_filename.rsplit('.', 1)[0]
+            ext = output_filename.rsplit('.', 1)[1] if '.' in output_filename else 'md'
+            part_filename = f"{base_name}-part{i}.{ext}"
+            
+            output_path = output_dir / part_filename
+            
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(part_content)
+            
+            output_files.append(output_path)
+            
+            size_mb = len(part_content.encode('utf-8')) / (1024 * 1024)
+            print(f"  Part {i}/{len(chunks)}: {part_words:,} words, {size_mb:.1f}MB")
+            print(f"  ✓ {output_path}")
+            print()
+        
+        # Generate manifest
+        manifest_content = generate_manifest(repo_path, output_files, total_words)
+        manifest_path = output_dir / "MANIFEST.md"
+        
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            f.write(manifest_content)
+        
+        print(f"📋 Manifest: {manifest_path}")
+        print()
+        print(f"Total word count: {total_words:,}")
+        print()
+        print("✅ Done! Upload all parts to NotebookLM as separate sources.")
+        
+    else:
+        # Single file output (fits within limits)
+        print(f"Word count: {word_count:,}")
+        
+        size_mb = len(content.encode('utf-8')) / (1024 * 1024)
+        if size_mb > MAX_FILE_SIZE_MB * 0.8 or word_count > max_words * 0.8:
+            print(f"⚠ Warning: Approaching NotebookLM limits ({size_mb:.1f}MB, {word_count:,} words)")
+            print(f"   Consider using --split for better NotebookLM compatibility")
+        print()
+        
+        # Write output
+        output_filename = get_output_filename(repo_path)
+        output_path = output_dir / output_filename
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        
+        print(f"✓ Output: {output_path}")
+        print()
+        print("✅ Done! Upload the markdown file to NotebookLM.")
     
     # Update .gitignore
     if update_gitignore(repo_path):
         print(f"✓ Updated .gitignore")
-    
-    print()
-    print("Done! Upload the markdown file to NotebookLM.")
 
 
 if __name__ == "__main__":

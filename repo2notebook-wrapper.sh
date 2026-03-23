@@ -26,6 +26,8 @@ DRY_RUN=false
 VERBOSE=false
 SKIP_SECURITY_CHECK=false
 AUTO_OPEN=false
+AUTO_SPLIT=true
+MAX_WORDS=400000
 OUTPUT_DIR="_repo2notebook"
 
 # Sensitive file/directory patterns (in addition to .gitignore)
@@ -83,6 +85,9 @@ OPTIONS:
     -d, --dry-run           Check only, don't run conversion
     -s, --skip-security     Skip security checks (NOT RECOMMENDED)
     -o, --open              Automatically open output file
+    --split                 Enable auto-split for large repos (default: ON)
+    --no-split              Disable auto-split (error if too large)
+    --max-words NUM         Max words per file (default: ${MAX_WORDS})
     --max-files NUM         Max number of files (default: ${MAX_FILE_COUNT})
     --max-size MB           Max total size in MB (default: ${MAX_TOTAL_SIZE_MB})
     --output-dir DIR        Output directory (default: ${OUTPUT_DIR})
@@ -94,11 +99,14 @@ EXAMPLES:
     # First run dry-run check
     $(basename "$0") --dry-run /path/to/repo
 
-    # Normal run with verbose output
-    $(basename "$0") --verbose /path/to/repo
+    # Normal run with verbose output and auto-split
+    $(basename "$0") --verbose --split /path/to/repo
 
-    # Auto-open result
-    $(basename "$0") --open .
+    # Disable splitting (strict mode)
+    $(basename "$0") --no-split .
+
+    # Custom word limit
+    $(basename "$0") --max-words 300000 /path/to/repo
 
 EOF
 }
@@ -350,37 +358,103 @@ run_repo2notebook() {
     local repo_dir="$1"
     
     log_info "Running repo2notebook.py..."
+    
+    # Build command with options
+    local cmd="python3 \"$REPO2NOTEBOOK_SCRIPT\" \"$repo_dir\""
+    
+    if [ "$AUTO_SPLIT" = true ]; then
+        cmd="$cmd --split"
+    else
+        cmd="$cmd --no-split"
+    fi
+    
+    if [ "$MAX_WORDS" != "400000" ]; then
+        cmd="$cmd --max-words $MAX_WORDS"
+    fi
+    
+    log_verbose "Command: $cmd"
     echo
     
     # Run Python script
-    if python3 "$REPO2NOTEBOOK_SCRIPT" "$repo_dir"; then
+    if eval "$cmd"; then
         log_success "Conversion completed!"
         
-        # Find output file
-        local output_file=$(find "$repo_dir/$OUTPUT_DIR" -name "*.md" -type f | head -1)
+        # Check for multiple output files (split mode)
+        local output_files=$(find "$repo_dir/$OUTPUT_DIR" -name "*.md" -type f ! -name "MANIFEST.md")
+        local file_count=$(echo "$output_files" | wc -l)
         
-        if [ -n "$output_file" ]; then
-            local file_size=$(du -h "$output_file" | cut -f1)
-            local word_count=$(wc -w < "$output_file")
+        if [ "$file_count" -gt 1 ]; then
+            # Multiple files - split mode
+            log_info "Generated $file_count part files"
             
             echo
             echo -e "${CYAN}┌─────────────────────────────────────────┐${NC}"
-            echo -e "${CYAN}│${NC}  Output                                 ${CYAN}│${NC}"
+            echo -e "${CYAN}│${NC}  Multi-Part Output                      ${CYAN}│${NC}"
             echo -e "${CYAN}└─────────────────────────────────────────┘${NC}"
             echo
-            echo -e "  📄 File: ${GREEN}$output_file${NC}"
-            echo -e "  💾 Size: ${GREEN}$file_size${NC}"
-            echo -e "  📝 Words: ${GREEN}$(printf "%'d" $word_count)${NC}"
-            echo
             
-            # Auto-open
-            if [ "$AUTO_OPEN" = true ]; then
-                log_info "Opening output file..."
+            local total_size=0
+            local total_words=0
+            
+            echo "$output_files" | while read output_file; do
+                if [ -f "$output_file" ]; then
+                    local file_size=$(du -h "$output_file" | cut -f1)
+                    local word_count=$(wc -w < "$output_file" 2>/dev/null || echo "0")
+                    total_words=$((total_words + word_count))
+                    
+                    echo -e "  📄 $(basename "$output_file")"
+                    echo -e "     Size: ${GREEN}$file_size${NC}, Words: ${GREEN}$(printf "%'d" $word_count)${NC}"
+                fi
+            done
+            
+            # Check for manifest
+            local manifest_file="$repo_dir/$OUTPUT_DIR/MANIFEST.md"
+            if [ -f "$manifest_file" ]; then
+                echo
+                echo -e "  📋 Manifest: ${GREEN}MANIFEST.md${NC}"
+                echo
+                echo -e "${YELLOW}Instructions:${NC}"
+                echo -e "  Upload all part files to NotebookLM as separate sources"
+                echo -e "  See MANIFEST.md for detailed instructions"
+            fi
+            
+            # Auto-open manifest if requested
+            if [ "$AUTO_OPEN" = true ] && [ -f "$manifest_file" ]; then
+                log_info "Opening manifest file..."
                 case "$(uname -s)" in
-                    Darwin*)    open "$output_file" ;;
-                    Linux*)     xdg-open "$output_file" 2>/dev/null || log_warning "Cannot auto-open" ;;
+                    Darwin*)    open "$manifest_file" ;;
+                    Linux*)     xdg-open "$manifest_file" 2>/dev/null || log_warning "Cannot auto-open" ;;
                     *)          log_warning "Auto-open not supported on this OS" ;;
                 esac
+            fi
+            
+        else
+            # Single file
+            local output_file=$(echo "$output_files" | head -1)
+            
+            if [ -n "$output_file" ] && [ -f "$output_file" ]; then
+                local file_size=$(du -h "$output_file" | cut -f1)
+                local word_count=$(wc -w < "$output_file")
+                
+                echo
+                echo -e "${CYAN}┌─────────────────────────────────────────┐${NC}"
+                echo -e "${CYAN}│${NC}  Output                                 ${CYAN}│${NC}"
+                echo -e "${CYAN}└─────────────────────────────────────────┘${NC}"
+                echo
+                echo -e "  📄 File: ${GREEN}$(basename "$output_file")${NC}"
+                echo -e "  💾 Size: ${GREEN}$file_size${NC}"
+                echo -e "  📝 Words: ${GREEN}$(printf "%'d" $word_count)${NC}"
+                echo
+                
+                # Auto-open
+                if [ "$AUTO_OPEN" = true ]; then
+                    log_info "Opening output file..."
+                    case "$(uname -s)" in
+                        Darwin*)    open "$output_file" ;;
+                        Linux*)     xdg-open "$output_file" 2>/dev/null || log_warning "Cannot auto-open" ;;
+                        *)          log_warning "Auto-open not supported on this OS" ;;
+                    esac
+                fi
             fi
         fi
         
@@ -424,6 +498,18 @@ main() {
                 AUTO_OPEN=true
                 shift
                 ;;
+            --split)
+                AUTO_SPLIT=true
+                shift
+                ;;
+            --no-split)
+                AUTO_SPLIT=false
+                shift
+                ;;
+            --max-words)
+                MAX_WORDS="$2"
+                shift 2
+                ;;
             --max-files)
                 MAX_FILE_COUNT="$2"
                 shift 2
@@ -452,6 +538,11 @@ main() {
     REPO_DIR=$(cd "$REPO_DIR" && pwd)
     
     log_info "Repository: ${CYAN}$REPO_DIR${NC}"
+    if [ "$AUTO_SPLIT" = true ]; then
+        log_verbose "Auto-split: ${GREEN}enabled${NC} (max words: $MAX_WORDS)"
+    else
+        log_verbose "Auto-split: ${YELLOW}disabled${NC} (strict mode)"
+    fi
     echo
     
     # Check dependencies
