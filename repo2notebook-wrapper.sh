@@ -143,10 +143,44 @@ print_header() {
 
 will_be_excluded() {
     local file="$1"
+    local repo_dir="${2:-}"  # Optional: repository root directory
     local filename=$(basename "$file")
     local extension="${filename##*.}"
     local dirname=$(dirname "$file")
     local dir_basename=$(basename "$dirname")
+    
+    # Check .repo2notebookignore (highest priority - same as repo2notebook.py)
+    # Look for .repo2notebookignore in repo_dir first, then walk up from file location
+    if [ -n "$repo_dir" ] && [ -f "$repo_dir/.repo2notebookignore" ]; then
+        while IFS= read -r pattern; do
+            pattern=$(echo "$pattern" | xargs)  # Trim whitespace
+            if [ -n "$pattern" ] && [[ ! "$pattern" =~ ^# ]]; then
+                # Match against filename or relative path
+                local rel_path="${file#$repo_dir/}"
+                if [[ "$filename" == $pattern ]] || [[ "$rel_path" == $pattern ]] || [[ "$rel_path" == *"$pattern"* ]]; then
+                    return 0  # Will be excluded by .repo2notebookignore
+                fi
+            fi
+        done < "$repo_dir/.repo2notebookignore"
+    elif [ -z "$repo_dir" ]; then
+        # If no repo_dir provided, try to find .repo2notebookignore by walking up
+        local search_dir=$(dirname "$file")
+        while [ "$search_dir" != "/" ] && [ "$search_dir" != "." ]; do
+            if [ -f "$search_dir/.repo2notebookignore" ]; then
+                while IFS= read -r pattern; do
+                    pattern=$(echo "$pattern" | xargs)  # Trim whitespace
+                    if [ -n "$pattern" ] && [[ ! "$pattern" =~ ^# ]]; then
+                        local rel_path="${file#$search_dir/}"
+                        if [[ "$filename" == $pattern ]] || [[ "$rel_path" == $pattern ]] || [[ "$rel_path" == *"$pattern"* ]]; then
+                            return 0  # Will be excluded by .repo2notebookignore
+                        fi
+                    fi
+                done < "$search_dir/.repo2notebookignore"
+                break
+            fi
+            search_dir=$(dirname "$search_dir")
+        done
+    fi
     
     # Check if in excluded directory
     for excluded_dir in "${DEFAULT_EXCLUDE_DIRS[@]}"; do
@@ -352,7 +386,8 @@ scan_sensitive_files() {
             local rel_path="${file#$repo_dir/}"
             
             # Check if this file will be excluded by repo2notebook.py
-            if will_be_excluded "$file"; then
+            # Pass repo_dir as second parameter for proper .repo2notebookignore lookup
+            if will_be_excluded "$file" "$repo_dir"; then
                 found_excluded+=("$rel_path")
             else
                 found_sensitive+=("$rel_path")
