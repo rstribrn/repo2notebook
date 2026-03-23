@@ -1040,6 +1040,21 @@ Examples:
     output_dir = repo_path / OUTPUT_DIR
     output_dir.mkdir(exist_ok=True)
     
+    # Clean up old part files from previous runs to avoid confusion
+    # (e.g., if previous run had 27 parts and current run has 26 parts,
+    # the old part27 would remain and contain outdated/excluded content)
+    output_filename_base = get_output_filename(repo_path).rsplit('.', 1)[0]
+    old_parts_removed = 0
+    for old_part in output_dir.glob(f"{output_filename_base}-part*.md"):
+        try:
+            old_part.unlink()
+            old_parts_removed += 1
+        except Exception as e:
+            print(f"Warning: Could not remove {old_part.name}: {e}")
+    
+    if old_parts_removed > 0:
+        print(f"Cleaned up {old_parts_removed} old part file(s) from previous run")
+    
     # Generate markdown (check if splitting needed)
     print("Generating markdown...")
     content, word_count = generate_markdown(repo_path, files)
