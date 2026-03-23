@@ -49,6 +49,11 @@ ALWAYS_EXCLUDE_DIRS = {
     "Pods", "DerivedData", ".build",                # iOS/Swift
     ".idea", ".vscode", ".vs", ".fleet",            # IDEs
     ".gradle", ".maven",                            # Java build tools
+    "coverage", ".nyc_output",                      # Coverage reports
+    "htmlcov", ".coverage",                         # Python coverage
+    "site-packages", "eggs", "sdist",               # Python packaging
+    "tmp", "temp", "cache", ".cache",               # Temporary/cache
+    "logs", "log",                                  # Log directories
     OUTPUT_DIR,                                      # Our own output
 }
 
@@ -58,12 +63,23 @@ ALWAYS_EXCLUDE_FILES = {
 }
 
 ALWAYS_EXCLUDE_PATTERNS = [
+    # Lock files
     "*-lock.json",      # package-lock.json, etc.
     "*-lock.yaml",      # pnpm-lock.yaml
     "*.lock",           # Cargo.lock, poetry.lock, Gemfile.lock, composer.lock
+    
+    # Logs and temporary files
     "*.log",
+    "*.tmp",
+    "*.temp",
+    "*.swp",
+    "*.swo",
+    "*~",               # Backup files
+    
+    # Compiled/Binary files
     "*.pyc",
     "*.pyo",
+    "*.pyd",
     "*.class",
     "*.dll",
     "*.exe",
@@ -71,11 +87,61 @@ ALWAYS_EXCLUDE_PATTERNS = [
     "*.dylib",
     "*.o",
     "*.obj",
+    "*.a",
+    "*.lib",
+    
+    # Minified and bundled files
     "*.min.js",
     "*.min.css",
     "*.map",
     "*.chunk.js",
     "*.bundle.js",
+    "*.bundle.css",
+    
+    # Test and fixture data
+    "*_test.py",        # Python test files (in addition to test_*)
+    "test_*.py",
+    "*_test.go",        # Go test files
+    "*_test.rb",        # Ruby test files
+    "*.spec.js",        # JS spec files
+    "*.spec.ts",
+    "*.test.js",
+    "*.test.ts",
+    "fixtures.json",
+    "mock_data.*",
+    "test_data.*",
+    "sample_data.*",
+    
+    # Documentation builds
+    "_build/*",
+    "_site/*",
+    ".docusaurus/*",
+    ".jekyll-cache/*",
+    
+    # Package manager files
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "poetry.lock",
+    "Pipfile.lock",
+    "Gemfile.lock",
+    "composer.lock",
+    "Cargo.lock",
+    "go.sum",
+    
+    # Large generated files
+    "*.sql.gz",
+    "*.dump",
+    "*.bak",
+    "*.backup",
+    
+    # IDE and editor files
+    "*.swp",
+    "*.swo",
+    "*~",
+    ".project",
+    ".classpath",
+    ".settings",
 ]
 
 # Extension to language mapping for markdown code blocks

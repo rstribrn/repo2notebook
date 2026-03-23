@@ -389,15 +389,38 @@ echo "tests/" >> .gitignore
 
 ### ❌ Excluded (Automatic)
 
-- Version control (`.git/`, `.svn/`)
-- Dependencies (`node_modules/`, `vendor/`, `venv/`)
-- Build outputs (`dist/`, `build/`, `target/`)
-- IDE files (`.idea/`, `.vscode/`)
-- Lock files (`*-lock.json`, `*.lock`)
-- Binary files (`.exe`, `.dll`, `.so`, `.pyc`)
-- Hidden files (except `.env.example`, `.gitignore`)
-- Minified files (`*.min.js`, `*.min.css`)
-- Large files (detected automatically)
+**Directories:**
+- Version control (`.git/`, `.svn/`, `.hg/`)
+- Dependencies (`node_modules/`, `vendor/`, `venv/`, `bower_components/`)
+- Build outputs (`dist/`, `build/`, `out/`, `target/`, `bin/`, `obj/`)
+- Framework cache (`.next/`, `.nuxt/`, `.expo/`, `.turbo/`)
+- IDE files (`.idea/`, `.vscode/`, `.vs/`, `.fleet/`)
+- Build tools (`.gradle/`, `.maven/`)
+- Coverage reports (`coverage/`, `.nyc_output/`, `htmlcov/`)
+- Temporary/cache (`tmp/`, `temp/`, `cache/`, `.cache/`)
+- Log directories (`logs/`, `log/`)
+
+**Files:**
+- Lock files (`package-lock.json`, `*.lock`, `*-lock.json`, `*-lock.yaml`)
+- Log files (`*.log`)
+- Temporary files (`*.tmp`, `*.temp`, `*.swp`, `*.swo`, `*~`)
+- Compiled files (`*.pyc`, `*.pyo`, `*.class`, `*.o`, `*.obj`, `*.dll`, `*.exe`, `*.so`)
+- Minified files (`*.min.js`, `*.min.css`, `*.map`)
+- Bundle files (`*.chunk.js`, `*.bundle.js`, `*.bundle.css`)
+- Binary files (images, videos, executables, archives - see Binary Detection)
+- OS files (`.DS_Store`, `Thumbs.db`, `desktop.ini`)
+- Secrets (`.env`, `.env.local`, `.env.production`)
+
+**Test and Mock Data:**
+- Test files (`test_*.py`, `*_test.py`, `*_test.go`, `*_test.rb`)
+- Spec files (`*.spec.js`, `*.spec.ts`, `*.test.js`, `*.test.ts`)
+- Mock/fixture data (`fixtures.json`, `mock_data.*`, `test_data.*`, `sample_data.*`)
+
+**Documentation Builds:**
+- `_build/`, `_site/`, `.docusaurus/`, `.jekyll-cache/`
+
+**Large Generated Files:**
+- `*.sql.gz`, `*.dump`, `*.bak`, `*.backup`
 
 ### 🎯 Additional Exclusions
 
