@@ -29,3 +29,8 @@ Thumbs.db
 *.md.tmp
 output/
 *.heapsnapshot
+
+# repo2notebook
+# https://github.com/rstribrn/repo2notebook
+_repo2notebook/
+repo2notebook.py
