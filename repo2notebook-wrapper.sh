@@ -55,6 +55,70 @@ SENSITIVE_PATTERNS=(
     "*wallet.dat"
 )
 
+# Binary extensions that will be auto-excluded (from repo2notebook.py)
+BINARY_EXTENSIONS=(
+    # Images
+    ".png" ".jpg" ".jpeg" ".gif" ".bmp" ".ico" ".svg" ".webp" ".tiff" ".tif"
+    # Videos
+    ".mp4" ".avi" ".mov" ".wmv" ".flv" ".mkv" ".webm" ".m4v"
+    # Audio
+    ".mp3" ".wav" ".ogg" ".flac" ".aac" ".wma" ".m4a"
+    # Archives
+    ".zip" ".tar" ".gz" ".bz2" ".7z" ".rar" ".xz" ".tgz"
+    # Executables
+    ".exe" ".dll" ".so" ".dylib" ".app" ".deb" ".rpm" ".apk"
+    # Compiled
+    ".o" ".obj" ".class" ".pyc" ".pyo" ".elc"
+    # Documents
+    ".pdf" ".doc" ".docx" ".xls" ".xlsx" ".ppt" ".pptx" ".odt" ".ods" ".odp"
+    # Databases
+    ".db" ".sqlite" ".sqlite3" ".mdb"
+    # Fonts
+    ".ttf" ".otf" ".woff" ".woff2" ".eot"
+    # Java keystores
+    ".jks" ".keystore" ".truststore" ".cer" ".crt" ".der" ".p7b" ".p7c" ".p12" ".pfx" ".pem"
+    # Other binary
+    ".bin" ".dat" ".pak" ".iso" ".img" ".dmg"
+)
+
+# Default exclude patterns (from repo2notebook.py)
+DEFAULT_EXCLUDE_PATTERNS=(
+    "*.lock" "*-lock.json" "*-lock.yaml"
+    "*.log" "*.tmp" "*.temp" "*.swp" "*.swo" "*~"
+    "*.pyc" "*.pyo" "*.pyd" "*.class" "*.dll" "*.exe" "*.so" "*.dylib"
+    "*.o" "*.obj" "*.a" "*.lib"
+    "*.min.js" "*.min.css" "*.map" "*.chunk.js" "*.bundle.js" "*.bundle.css"
+    "*_test.py" "test_*.py" "*_test.go" "*_test.rb"
+    "*.spec.js" "*.spec.ts" "*.test.js" "*.test.ts"
+    "fixtures.json" "mock_data.*" "test_data.*" "sample_data.*"
+    "*.sql.gz" "*.dump" "*.bak" "*.backup"
+)
+
+# Default exclude files (from repo2notebook.py ALWAYS_EXCLUDE_FILES)
+DEFAULT_EXCLUDE_FILES=(
+    ".DS_Store" "Thumbs.db" "desktop.ini"
+    ".env" ".env.local" ".env.production"
+)
+
+# Default exclude dirs (from repo2notebook.py ALWAYS_EXCLUDE_DIRS)
+DEFAULT_EXCLUDE_DIRS=(
+    ".git" ".svn" ".hg"
+    "node_modules" "bower_components"
+    "__pycache__" ".pytest_cache" ".mypy_cache"
+    "venv" ".venv" "env" ".env"
+    "dist" "build" "out" "_build"
+    ".next" ".nuxt" ".expo" ".turbo"
+    "target" "bin" "obj" "Debug" "Release"
+    "vendor" "Pods" "DerivedData" ".build"
+    ".idea" ".vscode" ".vs" ".fleet"
+    ".gradle" ".maven"
+    "coverage" ".nyc_output" "htmlcov" ".coverage"
+    "site-packages" "eggs" "sdist"
+    "tmp" "temp" "cache" ".cache"
+    "logs" "log"
+    "_repo2notebook"
+)
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -73,6 +137,66 @@ print_header() {
     echo -e "${CYAN}  repo2notebook Wrapper v${VERSION}${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo
+}
+
+will_be_excluded() {
+    local file="$1"
+    local filename=$(basename "$file")
+    local extension="${filename##*.}"
+    local dirname=$(dirname "$file")
+    local dir_basename=$(basename "$dirname")
+    
+    # Check if in excluded directory
+    for excluded_dir in "${DEFAULT_EXCLUDE_DIRS[@]}"; do
+        if [[ "$dirname" == *"/$excluded_dir" ]] || [[ "$dirname" == *"/$excluded_dir/"* ]] || [ "$dir_basename" = "$excluded_dir" ]; then
+            return 0  # Will be excluded
+        fi
+    done
+    
+    # Check if it's an excluded file (exact name match)
+    for excluded_file in "${DEFAULT_EXCLUDE_FILES[@]}"; do
+        if [ "$filename" = "$excluded_file" ]; then
+            return 0  # Will be excluded
+        fi
+    done
+    
+    # Check if it's a binary file (by extension)
+    if [[ "$filename" == *"."* ]]; then
+        local ext_lower=".${extension,,}"
+        for bin_ext in "${BINARY_EXTENSIONS[@]}"; do
+            if [ "$bin_ext" = "$ext_lower" ]; then
+                return 0  # Will be excluded
+            fi
+        done
+    fi
+    
+    # Check default exclude patterns
+    for pattern in "${DEFAULT_EXCLUDE_PATTERNS[@]}"; do
+        if [[ "$filename" == $pattern ]]; then
+            return 0  # Will be excluded
+        fi
+    done
+    
+    # Check user exclude patterns
+    for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+        if [[ "$filename" == $pattern ]] || [[ "$file" == *"$pattern"* ]]; then
+            return 0  # Will be excluded
+        fi
+    done
+    
+    # Check exclude file patterns (if loaded)
+    if [ -n "$EXCLUDE_FILE" ] && [ -f "$EXCLUDE_FILE" ]; then
+        while IFS= read -r pattern; do
+            pattern=$(echo "$pattern" | xargs)  # Trim whitespace
+            if [ -n "$pattern" ] && [[ ! "$pattern" =~ ^# ]]; then
+                if [[ "$filename" == $pattern ]] || [[ "$file" == *"$pattern"* ]]; then
+                    return 0  # Will be excluded
+                fi
+            fi
+        done < "$EXCLUDE_FILE"
+    fi
+    
+    return 1  # Will NOT be excluded
 }
 
 print_usage() {
@@ -217,18 +341,26 @@ validate_directory() {
 scan_sensitive_files() {
     local repo_dir="$1"
     local found_sensitive=()
+    local found_excluded=()
     
     log_info "Scanning for sensitive files..."
     
     for pattern in "${SENSITIVE_PATTERNS[@]}"; do
         while IFS= read -r -d '' file; do
             local rel_path="${file#$repo_dir/}"
-            found_sensitive+=("$rel_path")
+            
+            # Check if this file will be excluded by repo2notebook.py
+            if will_be_excluded "$file"; then
+                found_excluded+=("$rel_path")
+            else
+                found_sensitive+=("$rel_path")
+            fi
         done < <(find "$repo_dir" -type f -name "$pattern" -print0 2>/dev/null)
     done
     
+    # Show files that won't be excluded (real sensitive files)
     if [ ${#found_sensitive[@]} -gt 0 ]; then
-        log_warning "Found ${#found_sensitive[@]} potentially sensitive files:"
+        log_warning "Found ${#found_sensitive[@]} potentially sensitive files that WILL be included:"
         for file in "${found_sensitive[@]}"; do
             echo -e "  ${YELLOW}•${NC} $file"
         done
@@ -243,7 +375,15 @@ scan_sensitive_files() {
             fi
         fi
     else
-        log_success "No sensitive files found"
+        log_success "No sensitive files found (that would be included)"
+    fi
+    
+    # Show info about excluded sensitive files if verbose
+    if [ ${#found_excluded[@]} -gt 0 ] && [ "$VERBOSE" = true ]; then
+        log_verbose "Found ${#found_excluded[@]} sensitive files that will be auto-excluded:"
+        for file in "${found_excluded[@]}"; do
+            log_verbose "  • $file"
+        done
     fi
     
     return 0
