@@ -25,182 +25,21 @@ from pathlib import Path
 from datetime import datetime
 
 # ============================================================================
-# CONFIGURATION
+# CONFIGURATION (imported from constants.py)
 # ============================================================================
 
-OUTPUT_DIR = "_repo2notebook"
-GITHUB_URL = "https://github.com/rstribrn/repo2notebook"
-
-# NotebookLM limits (with safety margin)
-MAX_WORDS_PER_FILE = 400000  # NotebookLM limit is ~500k, we use 400k for safety
-MAX_FILE_SIZE_MB = 45        # NotebookLM limit is 50MB, we use 45MB for safety
-
-# Always exclude (hardcoded, cannot override)
-ALWAYS_EXCLUDE_DIRS = {
-    ".git", ".svn", ".hg",                          # Version control
-    "node_modules", "bower_components",              # JS
-    "__pycache__", ".pytest_cache", ".mypy_cache",  # Python
-    "venv", ".venv", "env", ".env",                 # Python virtualenv
-    "dist", "build", "out", "_build",               # Build outputs
-    ".next", ".nuxt", ".expo", ".turbo",            # JS frameworks
-    "target",                                        # Rust, Java
-    "bin", "obj", "Debug", "Release",               # C#/.NET
-    "vendor",                                        # Go, PHP, Ruby
-    "Pods", "DerivedData", ".build",                # iOS/Swift
-    ".idea", ".vscode", ".vs", ".fleet",            # IDEs
-    ".gradle", ".maven",                            # Java build tools
-    "coverage", ".nyc_output",                      # Coverage reports
-    "htmlcov", ".coverage",                         # Python coverage
-    "site-packages", "eggs", "sdist",               # Python packaging
-    "tmp", "temp", "cache", ".cache",               # Temporary/cache
-    "logs", "log",                                  # Log directories
-    OUTPUT_DIR,                                      # Our own output
-}
-
-ALWAYS_EXCLUDE_FILES = {
-    ".DS_Store", "Thumbs.db", "desktop.ini",        # OS files
-    ".env", ".env.local", ".env.production",        # Secrets (but .env.example OK)
-}
-
-ALWAYS_EXCLUDE_PATTERNS = [
-    # Lock files
-    "*-lock.json",      # package-lock.json, etc.
-    "*-lock.yaml",      # pnpm-lock.yaml
-    "*.lock",           # Cargo.lock, poetry.lock, Gemfile.lock, composer.lock
-    
-    # Logs and temporary files
-    "*.log",
-    "*.tmp",
-    "*.temp",
-    "*.swp",
-    "*.swo",
-    "*~",               # Backup files
-    
-    # Compiled/Binary files
-    "*.pyc",
-    "*.pyo",
-    "*.pyd",
-    "*.class",
-    "*.dll",
-    "*.exe",
-    "*.so",
-    "*.dylib",
-    "*.o",
-    "*.obj",
-    "*.a",
-    "*.lib",
-    
-    # Minified and bundled files
-    "*.min.js",
-    "*.min.css",
-    "*.map",
-    "*.chunk.js",
-    "*.bundle.js",
-    "*.bundle.css",
-    
-    # Test and fixture data
-    "*_test.py",        # Python test files (in addition to test_*)
-    "test_*.py",
-    "*_test.go",        # Go test files
-    "*_test.rb",        # Ruby test files
-    "*.spec.js",        # JS spec files
-    "*.spec.ts",
-    "*.test.js",
-    "*.test.ts",
-    "fixtures.json",
-    "mock_data.*",
-    "test_data.*",
-    "sample_data.*",
-    
-    # Documentation builds
-    "_build/*",
-    "_site/*",
-    ".docusaurus/*",
-    ".jekyll-cache/*",
-    
-    # Package manager files
-    "package-lock.json",
-    "yarn.lock",
-    "pnpm-lock.yaml",
-    "poetry.lock",
-    "Pipfile.lock",
-    "Gemfile.lock",
-    "composer.lock",
-    "Cargo.lock",
-    "go.sum",
-    
-    # Large generated files
-    "*.sql.gz",
-    "*.dump",
-    "*.bak",
-    "*.backup",
-    
-    # IDE and editor files
-    "*.swp",
-    "*.swo",
-    "*~",
-    ".project",
-    ".classpath",
-    ".settings",
-]
-
-# Extension to language mapping for markdown code blocks
-EXT_TO_LANG = {
-    # JavaScript/TypeScript
-    ".ts": "typescript", ".tsx": "typescript", ".mts": "typescript", ".cts": "typescript",
-    ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript", ".cjs": "javascript",
-    # Python
-    ".py": "python", ".pyw": "python", ".pyi": "python",
-    # Systems
-    ".go": "go",
-    ".rs": "rust",
-    ".c": "c", ".h": "c",
-    ".cpp": "cpp", ".hpp": "cpp", ".cc": "cpp", ".cxx": "cpp",
-    # Mobile
-    ".swift": "swift",
-    ".kt": "kotlin", ".kts": "kotlin",
-    ".java": "java",
-    ".dart": "dart",
-    # .NET
-    ".cs": "csharp",
-    ".fs": "fsharp",
-    ".vb": "vb",
-    # Web
-    ".html": "html", ".htm": "html",
-    ".css": "css",
-    ".scss": "scss", ".sass": "sass", ".less": "less",
-    ".vue": "vue",
-    ".svelte": "svelte",
-    # Data
-    ".json": "json",
-    ".yaml": "yaml", ".yml": "yaml",
-    ".toml": "toml",
-    ".xml": "xml",
-    ".csv": "csv",
-    # Shell
-    ".sh": "bash", ".bash": "bash", ".zsh": "zsh",
-    ".ps1": "powershell", ".psm1": "powershell",
-    ".bat": "batch", ".cmd": "batch",
-    # Other
-    ".sql": "sql",
-    ".graphql": "graphql", ".gql": "graphql",
-    ".md": "markdown", ".markdown": "markdown",
-    ".r": "r", ".R": "r",
-    ".rb": "ruby",
-    ".php": "php",
-    ".pl": "perl", ".pm": "perl",
-    ".lua": "lua",
-    ".ex": "elixir", ".exs": "elixir",
-    ".erl": "erlang",
-    ".hs": "haskell",
-    ".scala": "scala",
-    ".clj": "clojure",
-    ".groovy": "groovy",
-    ".tf": "terraform",
-    ".dockerfile": "dockerfile",
-    ".nginx": "nginx",
-    ".proto": "protobuf",
-}
+from constants import (
+    OUTPUT_DIR,
+    GITHUB_URL,
+    MAX_WORDS_PER_FILE,
+    MAX_FILE_SIZE_MB,
+    ALWAYS_EXCLUDE_DIRS,
+    ALWAYS_EXCLUDE_FILES,
+    ALWAYS_EXCLUDE_PATTERNS,
+    EXT_TO_LANG,
+    DEFAULT_TOKEN_RATIO,
+    BINARY_EXTENSIONS,
+)
 
 # ============================================================================
 # OUTPUT FILENAME
@@ -334,44 +173,10 @@ def should_exclude_file(file_name: str) -> bool:
 
 def is_binary_file(file_path: Path) -> bool:
     """Check if file is binary (cannot be converted to text)."""
-    # Known binary extensions
-    binary_extensions = {
-        # Images
-        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg", ".webp", ".tiff", ".tif",
-        # Videos
-        ".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv", ".webm", ".m4v",
-        # Audio
-        ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a",
-        # Archives
-        ".zip", ".tar", ".gz", ".bz2", ".7z", ".rar", ".xz", ".tgz",
-        # Executables
-        ".exe", ".dll", ".so", ".dylib", ".app", ".deb", ".rpm", ".apk",
-        # Compiled
-        ".o", ".obj", ".class", ".pyc", ".pyo", ".elc",
-        # Documents (binary formats)
-        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-        ".odt", ".ods", ".odp",
-        # Databases
-        ".db", ".sqlite", ".sqlite3", ".mdb",
-        # Fonts
-        ".ttf", ".otf", ".woff", ".woff2", ".eot",
-        # Java keystores and certificates
-        ".jks", ".keystore", ".truststore", ".cer", ".crt", ".der",
-        ".p7b", ".p7c", ".p12", ".pfx", ".pem",
-        # Oracle Fusion Middleware (Forms, Reports, Libraries)
-        ".fmb", ".fmx",         # Oracle Forms Module (binary source, executable)
-        ".mmb", ".mmx",         # Oracle Menu Module (binary source, executable)
-        ".pll", ".plx",         # Oracle PL/SQL Library (source, executable)
-        ".rdf", ".rep", ".rex", # Oracle Reports (definition, template, executable)
-        ".olb",                 # Oracle Object Library
-        ".ogd",                 # Oracle Graphics Display
-        # Other binary
-        ".bin", ".dat", ".pak", ".iso", ".img", ".dmg",
-    }
-    
     ext = file_path.suffix.lower()
-    
-    if ext in binary_extensions:
+
+    # Check by extension first
+    if ext in BINARY_EXTENSIONS:
         return True
     
     # Try to read first bytes to detect binary
@@ -705,11 +510,11 @@ def read_file_content(file_path: Path) -> str | None:
     return None
 
 
-def generate_markdown(repo_path: Path, files: list[Path]) -> tuple[str, int]:
-    """Generate markdown content from files. Returns (content, word_count)."""
+def generate_markdown(repo_path: Path, files: list[Path], count_tokens: bool = False, token_ratio: float = DEFAULT_TOKEN_RATIO) -> tuple[str, int, int]:
+    """Generate markdown content from files. Returns (content, word_count, token_count)."""
     repo_name = repo_path.name
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    
+
     lines = [
         f"# Repository: {repo_name}",
         f"",
@@ -720,18 +525,19 @@ def generate_markdown(repo_path: Path, files: list[Path]) -> tuple[str, int]:
         f"---",
         f"",
     ]
-    
+
     word_count = 0
-    
+    token_count = 0
+
     for file_path in files:
         rel_path = file_path.relative_to(repo_path)
         content = read_file_content(file_path)
-        
+
         if content is None:
             continue
-        
+
         language = get_language(file_path)
-        
+
         lines.append(f"## File: {rel_path}")
         lines.append("")
         lines.append(f"```{language}")
@@ -740,10 +546,18 @@ def generate_markdown(repo_path: Path, files: list[Path]) -> tuple[str, int]:
         lines.append("")
         lines.append("---")
         lines.append("")
-        
-        word_count += len(content.split())
-    
-    return "\n".join(lines), word_count
+
+        file_words = len(content.split())
+        word_count += file_words
+        if count_tokens:
+            token_count += int(file_words * token_ratio)
+
+    # Add token information if counting
+    if count_tokens:
+        token_line = f"Total tokens (est): {token_count:,}"
+        lines.insert(5, token_line)  # Insert after "Total files" line
+
+    return "\n".join(lines), word_count, token_count
 
 
 def split_files_into_chunks(files: list[Path], repo_path: Path, max_words: int) -> tuple[list[list[Path]], list[tuple[Path, int]]]:
@@ -807,11 +621,11 @@ def split_files_into_chunks(files: list[Path], repo_path: Path, max_words: int) 
     return chunks, oversized_files
 
 
-def generate_split_markdown(repo_path: Path, files: list[Path], part_num: int, total_parts: int) -> tuple[str, int]:
-    """Generate markdown content for a split part."""
+def generate_split_markdown(repo_path: Path, files: list[Path], part_num: int, total_parts: int, count_tokens: bool = False, token_ratio: float = DEFAULT_TOKEN_RATIO) -> tuple[str, int, int]:
+    """Generate markdown content for a split part. Returns (content, word_count, token_count)."""
     repo_name = repo_path.name
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    
+
     lines = [
         f"# Repository: {repo_name} (Part {part_num}/{total_parts})",
         f"",
@@ -822,18 +636,19 @@ def generate_split_markdown(repo_path: Path, files: list[Path], part_num: int, t
         f"---",
         f"",
     ]
-    
+
     word_count = 0
-    
+    token_count = 0
+
     for file_path in files:
         rel_path = file_path.relative_to(repo_path)
         content = read_file_content(file_path)
-        
+
         if content is None:
             continue
-        
+
         language = get_language(file_path)
-        
+
         lines.append(f"## File: {rel_path}")
         lines.append("")
         lines.append(f"```{language}")
@@ -842,10 +657,18 @@ def generate_split_markdown(repo_path: Path, files: list[Path], part_num: int, t
         lines.append("")
         lines.append("---")
         lines.append("")
-        
-        word_count += len(content.split())
-    
-    return "\n".join(lines), word_count
+
+        file_words = len(content.split())
+        word_count += file_words
+        if count_tokens:
+            token_count += int(file_words * token_ratio)
+
+    # Add token information if counting
+    if count_tokens:
+        token_line = f"Total tokens (est): {token_count:,}"
+        lines.insert(5, token_line)  # Insert after "Files in this part:" line
+
+    return "\n".join(lines), word_count, token_count
 
 
 def check_notebooklm_limits(content: str, word_count: int) -> tuple[bool, str]:
@@ -869,7 +692,28 @@ def check_notebooklm_limits(content: str, word_count: int) -> tuple[bool, str]:
     return True, ""
 
 
-def generate_manifest(repo_path: Path, output_files: list[Path], total_words: int):
+def write_statistics(stats_path: Path, repo_path: Path, stats: dict, 
+                     files: list, excluded_files: dict, word_count: int, 
+                     token_count: int, output_files: list, count_tokens: bool):
+    """Write statistics to STATISTICS.md file."""
+    total_output_bytes = sum(f.stat().st_size for f in output_files)
+    excluded_total = sum(len(v) for v in excluded_files.values())
+    
+    with open(stats_path, "w", encoding="utf-8") as f:
+        f.write("# Conversion Statistics\n\n")
+        f.write(f"Repository: {repo_path.name}\n")
+        f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
+        f.write(f"Files scanned: {stats['total_scanned']}\n")
+        f.write(f"Files included: {len(files)}\n")
+        f.write(f"Files excluded: {excluded_total}\n\n")
+        f.write(f"Total words: {word_count:,}\n")
+        if count_tokens:
+            f.write(f"Total tokens (est): {token_count:,}\n")
+        f.write(f"Output files: {len(output_files)}\n")
+        f.write(f"Total output size: {total_output_bytes / 1024 / 1024:.1f} MB\n")
+
+
+def generate_manifest(repo_path: Path, output_files: list[Path], total_words: int, total_tokens: int = 0):
     """Generate a manifest file listing all output parts."""
     manifest_content = [
         f"# Repository Conversion Manifest",
@@ -877,11 +721,16 @@ def generate_manifest(repo_path: Path, output_files: list[Path], total_words: in
         f"Repository: {repo_path.name}",
         f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"Total words: {total_words:,}",
-        f"Total parts: {len(output_files)}",
-        f"",
-        f"## Output Files",
-        f"",
     ]
+
+    if total_tokens > 0:
+        manifest_content.append(f"Total tokens (est): {total_tokens:,}")
+
+    manifest_content.append(f"Total parts: {len(output_files)}")
+    manifest_content.append(f"")
+
+    manifest_content.append(f"## Output Files")
+    manifest_content.append(f"")
     
     for i, output_file in enumerate(output_files, 1):
         size_mb = output_file.stat().st_size / (1024 * 1024)
@@ -991,13 +840,32 @@ Examples:
         metavar='FILE',
         help='Read exclude patterns from file (one pattern per line)'
     )
-    
+
+    parser.add_argument(
+        '--count-tokens',
+        action='store_true',
+        help='Enable token counting (estimate for LLM context limits)'
+    )
+
+    parser.add_argument(
+        '--token-ratio',
+        type=float,
+        default=DEFAULT_TOKEN_RATIO,
+        help=f'Token to word ratio for estimation (default: {DEFAULT_TOKEN_RATIO})'
+    )
+
     args = parser.parse_args()
+    
+    # Validate token_ratio
+    if args.token_ratio <= 0 or args.token_ratio > 2:
+        parser.error("--token-ratio must be between 0 and 2")
     
     # Determine repo path
     repo_path = Path(args.directory).resolve()
     max_words = args.max_words
     auto_split = args.split or not args.no_split  # Default is True unless --no-split
+    count_tokens = args.count_tokens
+    token_ratio = args.token_ratio
     
     # Collect exclude patterns
     exclude_patterns = []
@@ -1081,7 +949,7 @@ Examples:
     
     # Generate markdown (check if splitting needed)
     print("Generating markdown...")
-    content, word_count = generate_markdown(repo_path, files)
+    content, word_count, token_count = generate_markdown(repo_path, files, count_tokens=count_tokens, token_ratio=token_ratio)
     
     # Check NotebookLM limits
     is_valid, warning = check_notebooklm_limits(content, word_count)
@@ -1118,33 +986,37 @@ Examples:
         output_files = []
         total_words = 0
         
+        total_tokens = 0
+
         for i, chunk_files in enumerate(chunks, 1):
-            part_content, part_words = generate_split_markdown(
-                repo_path, chunk_files, i, len(chunks)
+            part_content, part_words, part_tokens = generate_split_markdown(
+                repo_path, chunk_files, i, len(chunks), count_tokens=count_tokens, token_ratio=token_ratio
             )
-            
+
             total_words += part_words
-            
+            total_tokens += part_tokens
+
             # Generate filename
             output_filename = get_output_filename(repo_path)
             base_name = output_filename.rsplit('.', 1)[0]
             ext = output_filename.rsplit('.', 1)[1] if '.' in output_filename else 'md'
             part_filename = f"{base_name}-part{i}.{ext}"
-            
+
             output_path = output_dir / part_filename
-            
+
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(part_content)
-            
+
             output_files.append(output_path)
-            
+
             size_mb = len(part_content.encode('utf-8')) / (1024 * 1024)
-            print(f"  Part {i}/{len(chunks)}: {part_words:,} words, {size_mb:.1f}MB")
+            token_info = f", {total_tokens:,} tokens" if count_tokens else ""
+            print(f"  Part {i}/{len(chunks)}: {part_words:,} words{token_info}, {size_mb:.1f}MB")
             print(f"  ✓ {output_path}")
             print()
-        
+
         # Generate manifest
-        manifest_content = generate_manifest(repo_path, output_files, total_words)
+        manifest_content = generate_manifest(repo_path, output_files, total_words, total_tokens)
         manifest_path = output_dir / "MANIFEST.md"
         
         with open(manifest_path, "w", encoding="utf-8") as f:
@@ -1153,28 +1025,47 @@ Examples:
         print(f"📋 Manifest: {manifest_path}")
         print()
         print(f"Total word count: {total_words:,}")
+        if count_tokens:
+            print(f"Total tokens (est): {total_tokens:,}")
         print()
+
+        # Write STATISTICS.md
+        stats_path = output_dir / "STATISTICS.md"
+        write_statistics(stats_path, repo_path, stats, files, excluded_files, 
+                        total_words, total_tokens, output_files, count_tokens)
+        print(f"📊 Statistics: {stats_path}")
+
         print("✅ Done! Upload all parts to NotebookLM as separate sources.")
         
     else:
         # Single file output (fits within limits)
-        print(f"Word count: {word_count:,}")
-        
+        if count_tokens:
+            print(f"Word count: {word_count:,}, Tokens (est): {token_count:,}")
+        else:
+            print(f"Word count: {word_count:,}")
+
         size_mb = len(content.encode('utf-8')) / (1024 * 1024)
         if size_mb > MAX_FILE_SIZE_MB * 0.8 or word_count > max_words * 0.8:
             print(f"⚠ Warning: Approaching NotebookLM limits ({size_mb:.1f}MB, {word_count:,} words)")
             print(f"   Consider using --split for better NotebookLM compatibility")
         print()
-        
+
         # Write output
         output_filename = get_output_filename(repo_path)
         output_path = output_dir / output_filename
-        
+
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(content)
-        
+
         print(f"✓ Output: {output_path}")
         print()
+
+        # Write STATISTICS.md
+        stats_path = output_dir / "STATISTICS.md"
+        write_statistics(stats_path, repo_path, stats, files, excluded_files, 
+                        word_count, token_count, [output_path], count_tokens)
+        print(f"📊 Statistics: {stats_path}")
+
         print("✅ Done! Upload the markdown file to NotebookLM.")
     
     # Generate excluded files report

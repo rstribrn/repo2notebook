@@ -1,3 +1,1 @@
-"""
-Empty __init__.py to make tests directory a Python package.
-"""
+# tests package

@@ -15,111 +15,72 @@ set -o pipefail  # Pipe failures
 VERSION="1.0.0"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO2NOTEBOOK_SCRIPT="${SCRIPT_DIR}/repo2notebook.py"
+GENERATE_CONSTANTS_SCRIPT="${SCRIPT_DIR}/generate_constants.py"
 
-# Security limits
-MAX_FILE_COUNT=10000
-MAX_TOTAL_SIZE_MB=500
-MAX_SINGLE_FILE_MB=10
+# ============================================================================
+# Load constants from Python (ensures synchronization)
+# ============================================================================
 
-# Default values
+# Check if generate_constants.py exists and is executable
+if [ -f "$GENERATE_CONSTANTS_SCRIPT" ] && command -v python3 &> /dev/null; then
+    # Source constants from Python
+    eval "$(python3 "$GENERATE_CONSTANTS_SCRIPT" 2>/dev/null || echo 'CONSTANTS_LOADED=false')"
+    if [ "${CONSTANTS_LOADED:-}" = "false" ]; then
+        echo "Warning: Failed to load constants from Python, using defaults" >&2
+    fi
+else
+    echo "Warning: generate_constants.py not found or python3 not available, using defaults" >&2
+    CONSTANTS_LOADED=false
+fi
+
+# Fallback defaults if constants failed to load
+if [ "${CONSTANTS_LOADED:-false}" = "false" ] || [ -z "${MAX_FILE_COUNT:-}" ]; then
+    MAX_FILE_COUNT=10000
+    MAX_TOTAL_SIZE_MB=500
+    MAX_SINGLE_FILE_MB=10
+    DEFAULT_TOKEN_RATIO=0.75
+    MAX_WORDS=400000
+    OUTPUT_DIR="_repo2notebook"
+    BINARY_EXTENSIONS=()
+    SENSITIVE_PATTERNS=(
+        "*.pem" "*.key" "*.p12" "*.pfx" "*id_rsa*" "*id_dsa*"
+        "*.env" "*.env.local" "*.env.production" "*.env.staging"
+        "*secret*" "*password*" "*credentials*" "*auth_token*"
+        "*.ovpn" "*oauth*" "*.kdbx" "*.asc" "*wallet.dat"
+    )
+    DEFAULT_EXCLUDE_PATTERNS=(
+        "*.lock" "*-lock.json" "*-lock.yaml"
+        "*.log" "*.tmp" "*.temp" "*.swp" "*.swo" "*~"
+        "*.pyc" "*.pyo" "*.pyd" "*.class" "*.dll" "*.exe" "*.so" "*.dylib"
+        "*.o" "*.obj" "*.a" "*.lib"
+        "*.min.js" "*.min.css" "*.map" "*.chunk.js" "*.bundle.js" "*.bundle.css"
+        "*_test.py" "test_*.py" "*_test.go" "*_test.rb"
+        "*.spec.js" "*.spec.ts" "*.test.js" "*.test.ts"
+        "fixtures.json" "mock_data.*" "test_data.*" "sample_data.*"
+        "*.sql.gz" "*.dump" "*.bak" "*.backup"
+    )
+    DEFAULT_EXCLUDE_FILES=(".DS_Store" "Thumbs.db" "desktop.ini" ".env" ".env.local" ".env.production")
+    DEFAULT_EXCLUDE_DIRS=(
+        ".git" ".svn" ".hg" "node_modules" "bower_components"
+        "__pycache__" ".pytest_cache" ".mypy_cache"
+        "venv" ".venv" "env" ".env"
+        "dist" "build" "out" "_build" ".next" ".nuxt" ".expo" ".turbo"
+        "target" "bin" "obj" "Debug" "Release" "vendor" "Pods" "DerivedData" ".build"
+        ".idea" ".vscode" ".vs" ".fleet" ".gradle" ".maven"
+        "coverage" ".nyc_output" "htmlcov" ".coverage"
+        "site-packages" "eggs" "sdist" "tmp" "temp" "cache" ".cache" "logs" "log"
+        "_repo2notebook"
+    )
+fi
+
+# User-configurable values
 DRY_RUN=false
 VERBOSE=false
 SKIP_SECURITY_CHECK=false
 AUTO_OPEN=false
 AUTO_SPLIT=true
-MAX_WORDS=400000
-OUTPUT_DIR="_repo2notebook"
 EXCLUDE_PATTERNS=()
 EXCLUDE_FILE=""
-
-# Sensitive file/directory patterns (in addition to .gitignore)
-SENSITIVE_PATTERNS=(
-    "*.pem"
-    "*.key"
-    "*.p12"
-    "*.pfx"
-    "*id_rsa*"
-    "*id_dsa*"
-    "*.env"
-    "*.env.local"
-    "*.env.production"
-    "*.env.staging"
-    "*secret*"
-    "*password*"
-    "*credentials*"
-    "*auth_token*"
-    "*.ovpn"
-    "*oauth*"
-    "*.kdbx"
-    "*.asc"
-    "*wallet.dat"
-)
-
-# Binary extensions that will be auto-excluded (from repo2notebook.py)
-BINARY_EXTENSIONS=(
-    # Images
-    ".png" ".jpg" ".jpeg" ".gif" ".bmp" ".ico" ".svg" ".webp" ".tiff" ".tif"
-    # Videos
-    ".mp4" ".avi" ".mov" ".wmv" ".flv" ".mkv" ".webm" ".m4v"
-    # Audio
-    ".mp3" ".wav" ".ogg" ".flac" ".aac" ".wma" ".m4a"
-    # Archives
-    ".zip" ".tar" ".gz" ".bz2" ".7z" ".rar" ".xz" ".tgz"
-    # Executables
-    ".exe" ".dll" ".so" ".dylib" ".app" ".deb" ".rpm" ".apk"
-    # Compiled
-    ".o" ".obj" ".class" ".pyc" ".pyo" ".elc"
-    # Documents
-    ".pdf" ".doc" ".docx" ".xls" ".xlsx" ".ppt" ".pptx" ".odt" ".ods" ".odp"
-    # Databases
-    ".db" ".sqlite" ".sqlite3" ".mdb"
-    # Fonts
-    ".ttf" ".otf" ".woff" ".woff2" ".eot"
-    # Java keystores
-    ".jks" ".keystore" ".truststore" ".cer" ".crt" ".der" ".p7b" ".p7c" ".p12" ".pfx" ".pem"
-    # Oracle Fusion Middleware (Forms, Reports, Libraries)
-    ".fmb" ".fmx" ".mmb" ".mmx" ".pll" ".plx" ".rdf" ".rep" ".rex" ".olb" ".ogd"
-    # Other binary
-    ".bin" ".dat" ".pak" ".iso" ".img" ".dmg"
-)
-
-# Default exclude patterns (from repo2notebook.py)
-DEFAULT_EXCLUDE_PATTERNS=(
-    "*.lock" "*-lock.json" "*-lock.yaml"
-    "*.log" "*.tmp" "*.temp" "*.swp" "*.swo" "*~"
-    "*.pyc" "*.pyo" "*.pyd" "*.class" "*.dll" "*.exe" "*.so" "*.dylib"
-    "*.o" "*.obj" "*.a" "*.lib"
-    "*.min.js" "*.min.css" "*.map" "*.chunk.js" "*.bundle.js" "*.bundle.css"
-    "*_test.py" "test_*.py" "*_test.go" "*_test.rb"
-    "*.spec.js" "*.spec.ts" "*.test.js" "*.test.ts"
-    "fixtures.json" "mock_data.*" "test_data.*" "sample_data.*"
-    "*.sql.gz" "*.dump" "*.bak" "*.backup"
-)
-
-# Default exclude files (from repo2notebook.py ALWAYS_EXCLUDE_FILES)
-DEFAULT_EXCLUDE_FILES=(
-    ".DS_Store" "Thumbs.db" "desktop.ini"
-    ".env" ".env.local" ".env.production"
-)
-
-# Default exclude dirs (from repo2notebook.py ALWAYS_EXCLUDE_DIRS)
-DEFAULT_EXCLUDE_DIRS=(
-    ".git" ".svn" ".hg"
-    "node_modules" "bower_components"
-    "__pycache__" ".pytest_cache" ".mypy_cache"
-    "venv" ".venv" "env" ".env"
-    "dist" "build" "out" "_build"
-    ".next" ".nuxt" ".expo" ".turbo"
-    "target" "bin" "obj" "Debug" "Release"
-    "vendor" "Pods" "DerivedData" ".build"
-    ".idea" ".vscode" ".vs" ".fleet"
-    ".gradle" ".maven"
-    "coverage" ".nyc_output" "htmlcov" ".coverage"
-    "site-packages" "eggs" "sdist"
-    "tmp" "temp" "cache" ".cache"
-    "logs" "log"
-    "_repo2notebook"
-)
 
 # Colors for output
 RED='\033[0;31m'
@@ -252,6 +213,8 @@ OPTIONS:
     --max-words NUM         Max words per file (default: ${MAX_WORDS})
     --exclude PATTERN       Exclude files matching pattern (can use multiple times)
     --exclude-file FILE     Read exclude patterns from file (one per line)
+    --count-tokens          Enable token counting (estimate for LLM context)
+    --token-ratio RATIO     Token to word ratio (default: ${DEFAULT_TOKEN_RATIO})
     --max-files NUM         Max number of files (default: ${MAX_FILE_COUNT})
     --max-size MB           Max total size in MB (default: ${MAX_TOTAL_SIZE_MB})
     --output-dir DIR        Output directory (default: ${OUTPUT_DIR})
@@ -568,7 +531,15 @@ run_repo2notebook() {
     if [ -n "$EXCLUDE_FILE" ]; then
         cmd="$cmd --exclude-file \"$EXCLUDE_FILE\""
     fi
-    
+
+    # Add token counting options
+    if [ "$COUNT_TOKENS" = true ]; then
+        cmd="$cmd --count-tokens"
+    fi
+    if [ -n "$TOKEN_RATIO" ]; then
+        cmd="$cmd --token-ratio $TOKEN_RATIO"
+    fi
+
     log_verbose "Command: $cmd"
     echo
     
@@ -713,6 +684,14 @@ main() {
                 ;;
             --exclude-file)
                 EXCLUDE_FILE="$2"
+                shift 2
+                ;;
+            --count-tokens)
+                COUNT_TOKENS=true
+                shift
+                ;;
+            --token-ratio)
+                TOKEN_RATIO="$2"
                 shift 2
                 ;;
             --max-files)
