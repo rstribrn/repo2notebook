@@ -477,6 +477,34 @@ generate_preview() {
     echo -e "  📁 Directories: ${GREEN}$total_dirs${NC}"
     echo -e "  📄 Files: ${GREEN}$total_files${NC}"
     echo -e "  💾 Size: ${GREEN}$total_size${NC}"
+    
+    # Estimate word and token counts if requested
+    if [ "$COUNT_TOKENS" = true ]; then
+        log_verbose "Calculating word and token estimates..."
+        local word_count=0
+        local token_count=0
+        local ratio="${TOKEN_RATIO:-$DEFAULT_TOKEN_RATIO}"
+        
+        # Count words in text files (exclude binary files)
+        while IFS= read -r file; do
+            # Skip if file will be excluded
+            if will_be_excluded "$file" "$repo_dir"; then
+                continue
+            fi
+            
+            # Count words in this file
+            local file_words=$(wc -w "$file" 2>/dev/null | awk '{print $1}')
+            if [ -n "$file_words" ] && [ "$file_words" -gt 0 ]; then
+                word_count=$((word_count + file_words))
+            fi
+        done < <(find "$repo_dir" -type f)
+        
+        # Calculate tokens
+        token_count=$(echo "$word_count * $ratio" | bc | cut -d. -f1)
+        
+        echo -e "  📝 Words (est): ${GREEN}$(printf "%'d" $word_count)${NC}"
+        echo -e "  🔢 Tokens (est): ${GREEN}$(printf "%'d" $token_count)${NC} ${CYAN}(ratio: ${ratio})${NC}"
+    fi
     echo
     
     # Breakdown by extension
@@ -490,13 +518,35 @@ generate_preview() {
         done
     echo
     
-    # Top directories by size
-    echo -e "${CYAN}Top 5 largest directories:${NC}"
-    du -h "$repo_dir"/* 2>/dev/null | \
-        sort -rh | head -5 | \
-        while read size dir; do
-            printf "  %-10s %s\n" "$size" "$(basename "$dir")"
+    # Top directories by size (exclude ignored directories)
+    echo -e "${CYAN}Top 5 largest directories (excluding ignored):${NC}"
+    (
+        # List all directories with their sizes
+        find "$repo_dir" -maxdepth 1 -type d ! -path "$repo_dir" -exec du -sh {} \; 2>/dev/null | \
+        while read size path; do
+            local dirname=$(basename "$path")
+            
+            # Check if directory should be excluded
+            local excluded=false
+            for excluded_dir in "${DEFAULT_EXCLUDE_DIRS[@]}"; do
+                if [ "$dirname" = "$excluded_dir" ]; then
+                    excluded=true
+                    break
+                fi
+            done
+            
+            # Only print if not excluded and has non-zero size
+            if [ "$excluded" = false ]; then
+                echo "$size $dirname"
+            fi
+        done | \
+        # Convert sizes to bytes for proper sorting
+        sort -h -r | \
+        head -5 | \
+        while read size dirname; do
+            printf "  %-10s %s\n" "$size" "$dirname"
         done
+    )
     echo
 }
 
