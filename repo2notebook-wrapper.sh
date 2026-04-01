@@ -515,6 +515,7 @@ generate_preview() {
         
         echo -e "  📝 Words (est): ${GREEN}$(printf "%'d" $word_count)${NC}"
         echo -e "  🔢 Tokens (est): ${GREEN}$(printf "%'d" $token_count)${NC} ${CYAN}(ratio: ${ratio})${NC}"
+        echo -e "  ${YELLOW}ℹ${NC}  Note: Estimate doesn't process .gitignore files (~2-3% variance expected)"
     fi
     echo
     
