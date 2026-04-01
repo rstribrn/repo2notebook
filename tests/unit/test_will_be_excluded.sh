@@ -106,6 +106,11 @@ echo "--- Excluded File Names ---"
 assert_excluded "/test/repo/.DS_Store" "/test/repo" ".DS_Store should be excluded"
 assert_excluded "/test/repo/subdir/.DS_Store" "/test/repo" ".DS_Store in subdirectory should be excluded"
 assert_excluded "/test/repo/.env" "/test/repo" ".env should be excluded"
+assert_excluded "/test/repo/.project" "/test/repo" ".project should be excluded"
+assert_excluded "/test/repo/.dockerignore" "/test/repo" ".dockerignore should be excluded"
+assert_excluded "/test/repo/.gitattributes" "/test/repo" ".gitattributes should be excluded"
+assert_excluded "/test/repo/.gitlab-ci.yml" "/test/repo" ".gitlab-ci.yml should be excluded"
+assert_excluded "/test/repo/.helmignore" "/test/repo" ".helmignore should be excluded"
 echo
 
 # Test excluded patterns

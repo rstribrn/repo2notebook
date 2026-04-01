@@ -67,8 +67,29 @@ ALWAYS_EXCLUDE_DIRS = {
 }
 
 ALWAYS_EXCLUDE_FILES = {
-    ".DS_Store", "Thumbs.db", "desktop.ini",        # OS files
-    ".env", ".env.local", ".env.production",        # Secrets (but .env.example OK)
+    # OS files
+    ".DS_Store", "Thumbs.db", "desktop.ini",
+    
+    # Environment/Secrets (but .env.example OK)
+    ".env", ".env.local", ".env.production", ".env.staging",
+    
+    # Build/IDE files
+    ".project",              # Eclipse project file
+    ".classpath",            # Eclipse classpath
+    ".factorypath",          # Eclipse factory path
+    
+    # Docker/Container
+    ".dockerignore",         # Docker ignore rules
+    ".maven-dockerexclude",  # Maven Docker excludes
+    ".helmignore",           # Helm ignore rules
+    
+    # Git/CI/CD
+    ".gitattributes",        # Git attributes
+    ".gitlab-ci.yml",        # GitLab CI config (use gitlab-ci.yml without dot instead)
+    
+    # Placeholders (empty marker files)
+    ".maven-placeholder",
+    ".graalvm-placeholder",
 }
 
 ALWAYS_EXCLUDE_PATTERNS = [

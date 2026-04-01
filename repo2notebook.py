@@ -164,10 +164,6 @@ def should_exclude_file(file_name: str) -> bool:
         if fnmatch.fnmatch(file_name, pattern):
             return True
     
-    # Hidden files (except some config files we want)
-    if file_name.startswith(".") and file_name not in {".env.example", ".gitignore"}:
-        return True
-    
     return False
 
 
