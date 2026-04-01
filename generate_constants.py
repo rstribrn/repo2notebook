@@ -71,3 +71,6 @@ print(f"SENSITIVE_PATTERNS={format_array(SENSITIVE_PATTERNS)}")
 print(f"DEFAULT_EXCLUDE_PATTERNS={format_array(DEFAULT_EXCLUDE_PATTERNS)}")
 print(f"DEFAULT_EXCLUDE_FILES={format_array(DEFAULT_EXCLUDE_FILES)}")
 print(f"DEFAULT_EXCLUDE_DIRS={format_array(DEFAULT_EXCLUDE_DIRS)}")
+
+# Success indicator
+print("CONSTANTS_LOADED=true")

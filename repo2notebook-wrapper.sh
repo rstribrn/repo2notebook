@@ -27,6 +27,13 @@ if [ -f "$GENERATE_CONSTANTS_SCRIPT" ] && command -v python3 &> /dev/null; then
     eval "$(python3 "$GENERATE_CONSTANTS_SCRIPT" 2>/dev/null || echo 'CONSTANTS_LOADED=false')"
     if [ "${CONSTANTS_LOADED:-}" = "false" ]; then
         echo "Warning: Failed to load constants from Python, using defaults" >&2
+    else
+        # Export arrays so they're visible in subshells and process substitutions
+        export BINARY_EXTENSIONS
+        export DEFAULT_EXCLUDE_DIRS
+        export DEFAULT_EXCLUDE_FILES
+        export DEFAULT_EXCLUDE_PATTERNS
+        export SENSITIVE_PATTERNS
     fi
 else
     echo "Warning: generate_constants.py not found or python3 not available, using defaults" >&2
@@ -415,10 +422,14 @@ check_repository_size() {
         return 1
     fi
     
-    # Largest files
-    log_verbose "Top 5 largest files:"
-    find "$repo_dir" -type f -exec du -h {} + 2>/dev/null | \
-        sort -rh | head -5 | while read -r size file; do
+    # Largest files (excluding ignored)
+    log_verbose "Top 5 largest files (excluding ignored):"
+    while read -r size file; do
+        # Check if file should be excluded
+        if ! will_be_excluded "$file" "$repo_dir"; then
+            echo "$size|$file"
+        fi
+    done < <(find "$repo_dir" -type f -exec du -h {} + 2>/dev/null | sort -rh) | head -5 | while IFS='|' read -r size file; do
         log_verbose "  $size - ${file#$repo_dir/}"
     done
     
@@ -485,9 +496,9 @@ generate_preview() {
         local token_count=0
         local ratio="${TOKEN_RATIO:-$DEFAULT_TOKEN_RATIO}"
         
-        # Count words in text files (exclude binary files)
+        # Count words in text files (using will_be_excluded for filtering)
         while IFS= read -r file; do
-            # Skip if file will be excluded
+            # Skip if file will be excluded (by pattern, binary ext, directory, etc.)
             if will_be_excluded "$file" "$repo_dir"; then
                 continue
             fi
@@ -497,7 +508,7 @@ generate_preview() {
             if [ -n "$file_words" ] && [ "$file_words" -gt 0 ]; then
                 word_count=$((word_count + file_words))
             fi
-        done < <(find "$repo_dir" -type f)
+        done < <(find "$repo_dir" -type f 2>/dev/null)
         
         # Calculate tokens
         token_count=$(echo "$word_count * $ratio" | bc | cut -d. -f1)
@@ -800,7 +811,13 @@ main() {
     # Security checks
     if [ "$SKIP_SECURITY_CHECK" = false ]; then
         scan_sensitive_files "$REPO_DIR" || exit 1
-        check_repository_size "$REPO_DIR" || exit 1
+    fi
+    
+    # Repository size check (always run - shows Top 5 largest files)
+    check_repository_size "$REPO_DIR" || exit 1
+    
+    # Git status check
+    if [ "$SKIP_SECURITY_CHECK" = false ]; then
         check_git_status "$REPO_DIR" || exit 1
     fi
     
