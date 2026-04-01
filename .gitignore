@@ -34,3 +34,4 @@ output/
 # https://github.com/rstribrn/repo2notebook
 _repo2notebook/
 repo2notebook.py
+.claude/
